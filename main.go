@@ -33,7 +33,7 @@ func main() {
 
 	// init ...
 	b := newBot(250)
-	b.addParser(staticMessage)
+	b.addParser(b.staticMessage)
 	b.addParser(b.nuke)
 	b.addParser(b.aegis)
 	b.addParser(b.antiSingleCharSpam)

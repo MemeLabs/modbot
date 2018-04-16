@@ -11,6 +11,7 @@ type bot struct {
 	maxLogLines     int
 	parsers         []func(m dggchat.Message, s *dggchat.Session)
 	lastNukeVictims []string
+	randomizer      int
 }
 
 func newBot(maxLogLines int) *bot {
@@ -22,6 +23,7 @@ func newBot(maxLogLines int) *bot {
 	b := bot{
 		log:         make([]dggchat.Message, maxLogLines),
 		maxLogLines: maxLogLines,
+		randomizer:  0, // TODO workaround for dup msgs, remove me...
 	}
 	return &b
 

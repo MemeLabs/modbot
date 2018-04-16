@@ -21,10 +21,13 @@ func isMod(user dggchat.User) bool {
 	return user.HasFeature("moderator") || user.HasFeature("admin")
 }
 
-func staticMessage(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
+	b.randomizer++
+	rnd := " " + strings.Repeat(".", b.randomizer%2)
+
 	for command, response := range commands {
 		if strings.HasPrefix(m.Message, command) {
-			s.SendMessage(response)
+			s.SendMessage(response + rnd)
 			// only handle the first match
 			return
 		}
@@ -47,7 +50,9 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 	badstr := parts[1]
 	badregexp, err := regexp.Compile(badstr)
 	if isRegexNuke && err != nil {
-		s.SendMessage("regexp error.")
+		b.randomizer++
+		rnd := " " + strings.Repeat(".", b.randomizer%2)
+		s.SendMessage("regexp error." + rnd)
 		return
 	}
 
