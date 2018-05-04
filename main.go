@@ -63,6 +63,13 @@ func main() {
 	dgg.AddUnbanHandler(b.onUnban)
 	debuglogger.Println("init done")
 
+	info, err := b.getProfileInfo()
+	if err != nil {
+		debuglogger.Printf("userinfo: %s", err.Error())
+	} else {
+		debuglogger.Printf("userinfo: '%+v'\n", info)
+	}
+
 	// Wait for ctr-C to shut down
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT)
