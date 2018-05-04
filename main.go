@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -12,15 +13,19 @@ import (
 )
 
 var (
-	authCookie string
-	chatURL    string
-	backendURL string
+	debuglogger = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
+	authCookie  string
+	chatURL     string
+	backendURL  string
+	logFileName string
+	logFile     *os.File
 )
 
 func init() {
 	flag.StringVar(&authCookie, "cookie", "", "Cookie used for chat authentication and API access")
 	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
 	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
+	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
 	flag.Parse()
 }
 
@@ -32,8 +37,22 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// TODO load url from config
-	//u, err := url.Parse("wss://chat.strims.gg/ws")
+	// init bot
+	b := newBot(authCookie, 250)
+	b.addParser(b.staticMessage)
+	b.addParser(b.nuke)
+	b.addParser(b.aegis)
+	b.addParser(b.antiSingleCharSpam)
+	b.addParser(b.rename)
+	dgg.AddMessageHandler(b.onMessage)
+	dgg.AddErrorHandler(b.onError)
+	dgg.AddMuteHandler(b.onMute)
+	dgg.AddUnmuteHandler(b.onUnmute)
+	dgg.AddBanHandler(b.onBan)
+	dgg.AddUnbanHandler(b.onUnban)
+	dgg.AddSocketErrorHandler(b.onSocketError)
+	dgg.AddPMHandler(b.onPMHandler)
+
 	u, err := url.Parse(chatURL)
 	if err != nil {
 		log.Fatalln(err)
@@ -44,24 +63,8 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	debuglogger.Println("chat connection ok")
+	debuglogger.Println("connected...")
 	defer dgg.Close()
-
-	// init ...
-	b := newBot(authCookie, 250)
-	b.addParser(b.staticMessage)
-	b.addParser(b.nuke)
-	b.addParser(b.aegis)
-	b.addParser(b.antiSingleCharSpam)
-	b.addParser(b.rename)
-
-	dgg.AddMessageHandler(b.onMessage)
-	dgg.AddErrorHandler(b.onError)
-	dgg.AddMuteHandler(b.onMute)
-	dgg.AddUnmuteHandler(b.onUnmute)
-	dgg.AddBanHandler(b.onBan)
-	dgg.AddUnbanHandler(b.onUnban)
-	debuglogger.Println("init done")
 
 	info, err := b.getProfileInfo()
 	if err != nil {
@@ -70,8 +73,41 @@ func main() {
 		debuglogger.Printf("userinfo: '%+v'\n", info)
 	}
 
-	// Wait for ctr-C to shut down
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT)
-	<-sc
+	// log to file and stdout
+	logFile = reOpenLog()
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGHUP)
+
+	debuglogger.Println("waiting for signals...")
+	for {
+		sig := <-signals
+		switch sig {
+
+		// handle logrotate request from daemon
+		case syscall.SIGHUP:
+			log.Println("signal: handling SIGHUP")
+			err := logFile.Close()
+			if err != nil {
+				panic(err)
+			}
+			logFile = reOpenLog()
+
+		// exit on interrupt
+		case syscall.SIGINT:
+			log.Println("signal: handling SIGINT")
+			logFile.Close()
+			os.Exit(1)
+		}
+	}
+}
+
+func reOpenLog() *os.File {
+	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	if err != nil {
+		panic(err)
+	}
+	mw := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(mw)
+	return f
 }

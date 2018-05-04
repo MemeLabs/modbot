@@ -1,0 +1,10 @@
+
+/tmp/chatlog/chatlog.log {
+  rotate 4
+  daily
+  missingok
+  nocompress
+  postrotate
+    /usr/bin/killall -HUP modbot
+  endscript
+}

@@ -81,6 +81,14 @@ func (b *bot) onUnban(m dggchat.Ban, s *dggchat.Session) {
 	log.Printf("unban: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
 }
 
+func (b *bot) onSocketError(err error, s *dggchat.Session) {
+	log.Printf("socket error: '%s'\n", err.Error())
+}
+
+func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
+	log.Printf("PM from '%s': '%s'\n", m.User.Nick, m.Message)
+}
+
 // return last n messsages for given user from log
 func (b *bot) getLastMessages(nick string, n int) []string {
 

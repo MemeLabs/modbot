@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 	"regexp"
 	"strings"
 
@@ -14,7 +13,6 @@ var (
 	commands = map[string]string{
 		"!faq": "https://github.com/MemeLabs/Rustla2/wiki/Chat-FAQ",
 	}
-	debuglogger = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 func isMod(user dggchat.User) bool {
@@ -78,7 +76,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 			// collect names in case we want to revert nuke
 			victimNames = append(victimNames, m.Sender.Nick)
 
-			debuglogger.Printf("Nuking '%s' because of message '%s' with nuke '%s'\n",
+			log.Printf("Nuking '%s' because of message '%s' with nuke '%s'\n",
 				m.Sender.Nick, m.Message, badstr)
 
 			// TODO duration, -1 means server default
@@ -118,13 +116,13 @@ func (b *bot) rename(m dggchat.Message, s *dggchat.Session) {
 	newName := parts[2]
 	err := b.renameRequest(oldName, newName)
 	if err != nil {
-		debuglogger.Printf("rename: '%s' to '%s' by %s failed with '%s'\n",
+		log.Printf("rename: '%s' to '%s' by %s failed with '%s'\n",
 			oldName, newName, m.Sender.Nick, err.Error())
 
 		b.sendMessageDedupe("rename error, check logs", s)
 		return
 	}
-	debuglogger.Printf("rename: '%s' to '%s' by '%s' success!\n",
+	log.Printf("rename: '%s' to '%s' by '%s' success!\n",
 		oldName, newName, m.Sender.Nick)
 	b.sendMessageDedupe("success, please reconnect", s)
 }
