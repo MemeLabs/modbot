@@ -21,13 +21,19 @@ func isMod(user dggchat.User) bool {
 	return user.HasFeature("moderator") || user.HasFeature("admin")
 }
 
-func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
+// TODO
+func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
 	b.randomizer++
 	rnd := " " + strings.Repeat(".", b.randomizer%2)
+	s.SendMessage(m + rnd)
+}
+
+func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
 
 	for command, response := range commands {
 		if strings.HasPrefix(m.Message, command) {
-			s.SendMessage(response + rnd)
+
+			b.sendMessageDedupe(response, s)
 			// only handle the first match
 			return
 		}
@@ -48,11 +54,9 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 
 	isRegexNuke := parts[0] == "!nukeregex"
 	badstr := parts[1]
-	badregexp, err := regexp.Compile(badstr)
+	badregexp, err := regexp.Compile(badstr) //TODO when is error not nil??
 	if isRegexNuke && err != nil {
-		b.randomizer++
-		rnd := " " + strings.Repeat(".", b.randomizer%2)
-		s.SendMessage("regexp error." + rnd)
+		b.sendMessageDedupe("regexp error", s)
 		return
 	}
 
@@ -92,7 +96,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
-// !aegis - undo last nuke
+// !aegis - undo (all) past nukes
 func (b *bot) aegis(m dggchat.Message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!aegis") || b.lastNukeVictims == nil {
 		return
@@ -102,4 +106,25 @@ func (b *bot) aegis(m dggchat.Message, s *dggchat.Session) {
 		s.SendUnmute(nick)
 	}
 	b.lastNukeVictims = nil
+}
+
+// !rename - change a chatter's username
+func (b *bot) rename(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!rename") {
+		return
+	}
+	parts := strings.Split(m.Message, " ")
+	oldName := parts[1]
+	newName := parts[2]
+	err := b.renameRequest(oldName, newName)
+	if err != nil {
+		debuglogger.Printf("rename: '%s' to '%s' by %s failed with '%s'\n",
+			oldName, newName, m.Sender.Nick, err.Error())
+
+		b.sendMessageDedupe("rename error, check logs", s)
+		return
+	}
+	debuglogger.Printf("rename: '%s' to '%s' by '%s' success!\n",
+		oldName, newName, m.Sender.Nick)
+	b.sendMessageDedupe("success, please reconnect", s)
 }

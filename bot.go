@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 
 	"github.com/voloshink/dggchat"
 )
@@ -12,9 +16,10 @@ type bot struct {
 	parsers         []func(m dggchat.Message, s *dggchat.Session)
 	lastNukeVictims []string
 	randomizer      int
+	authCookie      string
 }
 
-func newBot(maxLogLines int) *bot {
+func newBot(authCookie string, maxLogLines int) *bot {
 
 	if maxLogLines < 0 {
 		maxLogLines = 0
@@ -24,6 +29,7 @@ func newBot(maxLogLines int) *bot {
 		log:         make([]dggchat.Message, maxLogLines),
 		maxLogLines: maxLogLines,
 		randomizer:  0, // TODO workaround for dup msgs, remove me...
+		authCookie:  authCookie,
 	}
 	return &b
 
@@ -52,6 +58,22 @@ func (b *bot) onError(e string, s *dggchat.Session) {
 	log.Printf("error %s\n", e)
 }
 
+func (b *bot) onMute(m dggchat.Mute, s *dggchat.Session) {
+	log.Printf("mute: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+}
+
+func (b *bot) onUnmute(m dggchat.Mute, s *dggchat.Session) {
+	log.Printf("unmute: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+}
+
+func (b *bot) onBan(m dggchat.Ban, s *dggchat.Session) {
+	log.Printf("ban: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+}
+
+func (b *bot) onUnban(m dggchat.Ban, s *dggchat.Session) {
+	log.Printf("unban: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+}
+
 // return last n messsages for given user from log
 func (b *bot) getLastMessages(nick string, n int) []string {
 
@@ -68,4 +90,30 @@ func (b *bot) getLastMessages(nick string, n int) []string {
 		}
 	}
 	return output
+}
+
+// interact with backend...
+func (b *bot) renameRequest(oldName string, newName string) error {
+
+	var jsonStr = []byte(fmt.Sprintf(`{"username":"%s"}`, newName))
+	path := fmt.Sprintf("%s/admin/profiles/%s/username", backendURL, oldName)
+	req, err := http.NewRequest("POST", path, bytes.NewBuffer(jsonStr))
+	adminCookie := fmt.Sprintf("jwt=%s", b.authCookie)
+	req.Header.Set("Cookie", adminCookie)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Bot", "botnet")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Status code %d, %s", resp.StatusCode, body)
+	}
+	return nil
 }
