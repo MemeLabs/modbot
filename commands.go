@@ -139,8 +139,9 @@ func (b *bot) say(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	parts := strings.Split(m.Message, " ")
-	if len(parts) < 2 {
+	// message itself can contain spaces
+	parts := strings.SplitN(m.Message, " ", 2)
+	if len(parts) != 2 {
 		return
 	}
 	b.sendMessageDedupe(parts[1], s)
