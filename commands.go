@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -40,7 +41,6 @@ func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
 
 // !nuke str, !nukeregex regexp
 func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
-
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!nuke") {
 		return
 	}
@@ -62,6 +62,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 	// TODO limit by time, not amout of messages...
 	victimNames := []string{}
 	// the command itself will be last in the log and caught, exclude that one.
+	// TODO: except if the command was issued via PM...
 	for _, m := range b.log[:len(b.log)-1] {
 
 		var isBad bool
@@ -76,7 +77,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 			// collect names in case we want to revert nuke
 			victimNames = append(victimNames, m.Sender.Nick)
 
-			log.Printf("Nuking '%s' because of message '%s' with nuke '%s'\n",
+			log.Printf("[##] Nuking '%s' because of message '%s' with nuke '%s'\n",
 				m.Sender.Nick, m.Message, badstr)
 
 			// TODO duration, -1 means server default
@@ -111,18 +112,48 @@ func (b *bot) rename(m dggchat.Message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!rename") {
 		return
 	}
+
 	parts := strings.Split(m.Message, " ")
+	if len(parts) < 3 {
+		return
+	}
+
 	oldName := parts[1]
 	newName := parts[2]
 	err := b.renameRequest(oldName, newName)
 	if err != nil {
-		log.Printf("rename: '%s' to '%s' by %s failed with '%s'\n",
+		log.Printf("[##] rename: '%s' to '%s' by %s failed with '%s'\n",
 			oldName, newName, m.Sender.Nick, err.Error())
 
 		b.sendMessageDedupe("rename error, check logs", s)
 		return
 	}
-	log.Printf("rename: '%s' to '%s' by '%s' success!\n",
+	log.Printf("[##] rename: '%s' to '%s' by '%s' success!\n",
 		oldName, newName, m.Sender.Nick)
-	b.sendMessageDedupe("success, please reconnect", s)
+	b.sendMessageDedupe(fmt.Sprintf("name changed, %s please reconnect", oldName), s)
+}
+
+// !say - say a message
+func (b *bot) say(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!say") {
+		return
+	}
+
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+	b.sendMessageDedupe(parts[1], s)
+}
+
+// !mute - TODO very basic, does not take time etc...
+func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!mute") {
+		return
+	}
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+	s.SendMute(parts[1], -1)
 }

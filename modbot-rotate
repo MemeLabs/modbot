@@ -1,6 +1,6 @@
 
 /tmp/chatlog/chatlog.log {
-  rotate 4
+  rotate 2
   daily
   missingok
   nocompress

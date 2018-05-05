@@ -62,31 +62,44 @@ func (b *bot) onMessage(m dggchat.Message, s *dggchat.Session) {
 }
 
 func (b *bot) onError(e string, s *dggchat.Session) {
-	log.Printf("error %s\n", e)
+	log.Printf("[#] error: '%s'\n", e)
 }
 
 func (b *bot) onMute(m dggchat.Mute, s *dggchat.Session) {
-	log.Printf("mute: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+	log.Printf("[#] mute: '%s' by '%s'\n", m.Target.Nick, m.Sender.Nick)
 }
 
 func (b *bot) onUnmute(m dggchat.Mute, s *dggchat.Session) {
-	log.Printf("unmute: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+	log.Printf("[#] unmute: '%s' by '%s'\n", m.Target.Nick, m.Sender.Nick)
 }
 
 func (b *bot) onBan(m dggchat.Ban, s *dggchat.Session) {
-	log.Printf("ban: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+	log.Printf("[#] ban: '%s' by '%s'\n", m.Target.Nick, m.Sender.Nick)
 }
 
 func (b *bot) onUnban(m dggchat.Ban, s *dggchat.Session) {
-	log.Printf("unban: '%s' by '%s'\n", m.Sender.Nick, m.Target.Nick)
+	log.Printf("[#] unban: '%s' by '%s'\n", m.Target.Nick, m.Sender.Nick)
 }
 
 func (b *bot) onSocketError(err error, s *dggchat.Session) {
-	log.Printf("socket error: '%s'\n", err.Error())
+	log.Printf("[#] socket error: '%s'\n", err.Error())
 }
 
 func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
-	log.Printf("PM from '%s': '%s'\n", m.User.Nick, m.Message)
+	log.Printf("[#] PM: %s: %s\n", m.User.Nick, m.Message)
+
+	if isMod(m.User) {
+		// handle PM as command, TODO: rules shouldn't be handled here...
+		msg := dggchat.Message{
+			Sender:    m.User,
+			Timestamp: m.Timestamp,
+			Message:   m.Message,
+		}
+
+		for _, p := range b.parsers {
+			p(msg, s)
+		}
+	}
 }
 
 // return last n messsages for given user from log

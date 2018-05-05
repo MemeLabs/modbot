@@ -27,7 +27,7 @@ func (b *bot) antiSingleCharSpam(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	if badmsgs >= 5 {
-		log.Printf("single char mute with '%s' for '%s'\n", strings.Join(lastmsgs, ", "), m.Sender.Nick)
+		log.Printf("[##] single char mute with '%s' for '%s'\n", strings.Join(lastmsgs, ", "), m.Sender.Nick)
 		s.SendMute(m.Sender.Nick, -1)
 		s.SendMessage(fmt.Sprintf("%s - too many short messages", m.Sender.Nick))
 	}

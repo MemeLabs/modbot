@@ -44,6 +44,8 @@ func main() {
 	b.addParser(b.aegis)
 	b.addParser(b.antiSingleCharSpam)
 	b.addParser(b.rename)
+	b.addParser(b.say)
+	b.addParser(b.mute)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
 	dgg.AddMuteHandler(b.onMute)
@@ -75,9 +77,10 @@ func main() {
 
 	// log to file and stdout
 	logFile = reOpenLog()
+	log.Println("[##] Restart")
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGHUP)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	debuglogger.Println("waiting for signals...")
 	for {
@@ -86,7 +89,7 @@ func main() {
 
 		// handle logrotate request from daemon
 		case syscall.SIGHUP:
-			log.Println("signal: handling SIGHUP")
+			log.Println("[##] signal: handling SIGHUP")
 			err := logFile.Close()
 			if err != nil {
 				panic(err)
@@ -94,9 +97,14 @@ func main() {
 			logFile = reOpenLog()
 
 		// exit on interrupt
+		case syscall.SIGTERM:
+			fallthrough
 		case syscall.SIGINT:
-			log.Println("signal: handling SIGINT")
-			logFile.Close()
+			log.Println("[##] signal: handling SIGINT/SIGTERM")
+			err = logFile.Close()
+			if err != nil {
+				log.Printf("[##] error in cleanup: %s", err.Error())
+			}
 			os.Exit(1)
 		}
 	}
