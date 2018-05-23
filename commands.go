@@ -5,15 +5,15 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/voloshink/dggchat"
 )
 
 var (
 	// TODO load from file.
-	commands = map[string]string{
-		"!faq": "https://github.com/MemeLabs/Rustla2/wiki/Chat-FAQ",
-	}
+	commands = map[string]string{}
+	mutex    sync.Mutex
 )
 
 func isMod(user dggchat.User) bool {
@@ -90,9 +90,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 		b.lastNukeVictims = []string{}
 	}
 	// combine array so we are able to undo all past nukes at once, if necessary
-	for _, nick := range victimNames {
-		b.lastNukeVictims = append(b.lastNukeVictims, nick)
-	}
+	b.lastNukeVictims = append(b.lastNukeVictims, victimNames...)
 }
 
 // !aegis - undo (all) past nukes
@@ -157,4 +155,32 @@ func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 	s.SendMute(parts[1], -1)
+}
+
+// !addcommand command response
+func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!addcommand") {
+		return
+	}
+
+	// message itself can contain spaces
+	parts := strings.SplitN(m.Message, " ", -1)
+	if len(parts) < 3 {
+		return
+	}
+
+	cmnd := parts[1]
+	if strings.HasPrefix(cmnd, "!") {
+		cmnd = "!" + cmnd
+	}
+	resp := strings.Join(parts[2:], " ")
+	mutex.Lock()
+	commands[cmnd] = resp
+	mutex.Unlock()
+	success := saveStaticCommands()
+	if success {
+		b.sendMessageDedupe(fmt.Sprintf("added new command %s", cmnd), s)
+		return
+	}
+	b.sendMessageDedupe("failed saving command, check logs", s)
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -18,6 +20,7 @@ var (
 	chatURL     string
 	backendURL  string
 	logFileName string
+	commandJson string
 	logFile     *os.File
 )
 
@@ -26,10 +29,13 @@ func init() {
 	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
 	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
+	flag.StringVar(&commandJson, "commands", "commands.json", "static commands file")
 	flag.Parse()
 }
 
 func main() {
+
+	loadStaticCommands()
 
 	// TODO dggchat lib isn't flexible with the cookie name, workaround...
 	dgg, err := dggchat.New(";jwt=" + authCookie)
@@ -45,6 +51,7 @@ func main() {
 	b.addParser(b.antiSingleCharSpam)
 	b.addParser(b.rename)
 	b.addParser(b.say)
+	b.addParser(b.addCommand)
 	b.addParser(b.mute)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
@@ -118,4 +125,31 @@ func reOpenLog() *os.File {
 	mw := io.MultiWriter(os.Stdout, f)
 	log.SetOutput(mw)
 	return f
+}
+
+func loadStaticCommands() {
+	b, err := ioutil.ReadFile(commandJson)
+	if err != nil {
+		panic(err)
+	}
+	var cmnd map[string]string
+	err = json.Unmarshal(b, &cmnd)
+	if err != nil {
+		panic(err)
+	}
+	commands = cmnd
+}
+
+func saveStaticCommands() bool {
+	s, err := json.MarshalIndent(commands, "", "\t")
+	if err != nil {
+		log.Printf("failed marshaling commands, error: %v", err)
+		return false
+	}
+	err = ioutil.WriteFile(commandJson, s, 0755)
+	if err != nil {
+		log.Printf("failed saving commands, error: %v", err)
+		return false
+	}
+	return true
 }
