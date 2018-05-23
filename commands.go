@@ -170,7 +170,7 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	cmnd := parts[1]
-	if strings.HasPrefix(cmnd, "!") {
+	if !strings.HasPrefix(cmnd, "!") {
 		cmnd = "!" + cmnd
 	}
 	resp := strings.Join(parts[2:], " ")
