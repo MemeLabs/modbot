@@ -1,13 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
-	"time"
 
 	"github.com/voloshink/dggchat"
 )
@@ -19,11 +13,6 @@ type bot struct {
 	lastNukeVictims []string
 	randomizer      int
 	authCookie      string
-}
-
-type userInfo struct {
-	Username string `json:"username"`
-	IsAdmin  bool   `json:"is_admin"`
 }
 
 func newBot(authCookie string, maxLogLines int) *bot {
@@ -118,53 +107,4 @@ func (b *bot) getLastMessages(nick string, n int) []string {
 		}
 	}
 	return output
-}
-
-// get basic user info - to check if we are logged in and have correct rights
-func (b *bot) getProfileInfo() (userInfo, error) {
-
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/profile", backendURL), nil)
-	c := fmt.Sprintf("jwt=%s", b.authCookie)
-	req.Header.Set("X-Bot", "botnet")
-	req.Header.Set("Cookie", c)
-
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return userInfo{}, err
-	}
-
-	var ui userInfo
-	err = json.NewDecoder(resp.Body).Decode(&ui)
-	if err != nil {
-		return userInfo{}, err
-	}
-
-	return ui, nil
-}
-
-// interact with backend...
-func (b *bot) renameRequest(oldName string, newName string) error {
-
-	var jsonStr = []byte(fmt.Sprintf(`{"username":"%s"}`, newName))
-	path := fmt.Sprintf("%s/admin/profiles/%s/username", backendURL, oldName)
-	req, err := http.NewRequest("POST", path, bytes.NewBuffer(jsonStr))
-	c := fmt.Sprintf("jwt=%s", b.authCookie)
-	req.Header.Set("Cookie", c)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Bot", "botnet")
-
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("Status code %d, %s", resp.StatusCode, body)
-	}
-	return nil
 }

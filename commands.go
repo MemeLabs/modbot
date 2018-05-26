@@ -11,9 +11,8 @@ import (
 )
 
 var (
-	// TODO load from file.
-	commands = map[string]string{}
 	mutex    sync.Mutex
+	commands = map[string]string{}
 )
 
 func isMod(user dggchat.User) bool {
@@ -118,7 +117,7 @@ func (b *bot) rename(m dggchat.Message, s *dggchat.Session) {
 
 	oldName := parts[1]
 	newName := parts[2]
-	err := b.renameRequest(oldName, newName)
+	err := b.renameUser(oldName, newName)
 	if err != nil {
 		log.Printf("[##] rename: '%s' to '%s' by %s failed with '%s'\n",
 			oldName, newName, m.Sender.Nick, err.Error())
@@ -175,12 +174,50 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 	resp := strings.Join(parts[2:], " ")
 	mutex.Lock()
-	commands[cmnd] = resp
-	mutex.Unlock()
-	success := saveStaticCommands()
-	if success {
-		b.sendMessageDedupe(fmt.Sprintf("added new command %s", cmnd), s)
+	defer mutex.Unlock()
+	// TODO workaround to enable deletion
+	if resp == "_" {
+		delete(commands, cmnd)
+		b.sendMessageDedupe("deleted commands if it existed", s)
+	} else {
+		commands[cmnd] = resp
+		success := saveStaticCommands()
+		if success {
+			b.sendMessageDedupe(fmt.Sprintf("added new command %s", cmnd), s)
+			return
+		}
+		b.sendMessageDedupe("failed saving command, check logs", s)
+	}
+}
+
+// !stream or !strim(s) -- show top streams in chat
+func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!stream") && !strings.HasPrefix(m.Message, "!strim") {
 		return
 	}
-	b.sendMessageDedupe("failed saving command, check logs", s)
+
+	sd, err := b.getStreamList()
+	if err != nil {
+		log.Printf("%v\n", err)
+		b.sendMessageDedupe("error getting api data", s)
+		return
+	}
+
+	// handle case that less than 3 streams are being watched...
+	maxlen := len(sd.StreamList)
+	if maxlen == 0 {
+		b.sendMessageDedupe("no streams are being watched", s)
+		return
+	}
+	if maxlen > 3 {
+		maxlen = 3
+	}
+
+	// assumption: API gives json data sorted by "rustlers".
+	for i := 0; i < maxlen; i++ {
+		data := sd.StreamList[i]
+		// URL has leading slash
+		out := fmt.Sprintf("%d %s%s", data.Rustlers, websiteURL, data.URL)
+		b.sendMessageDedupe(out, s)
+	}
 }

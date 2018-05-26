@@ -8,11 +8,11 @@ import (
 	"github.com/voloshink/dggchat"
 )
 
-// prevent single character spam
-func (b *bot) antiSingleCharSpam(m dggchat.Message, s *dggchat.Session) {
+// Prevent repeated posting of short messages.
+func (b *bot) noShortMsgSpam(m dggchat.Message, s *dggchat.Session) {
 
 	// only proceed if the current message is "bad"
-	if len(m.Message) >= 2 {
+	if len(m.Message) > 2 {
 		return
 	}
 

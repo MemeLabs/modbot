@@ -24,6 +24,10 @@ var (
 	logFile     *os.File
 )
 
+const (
+	websiteURL = "strims.gg"
+)
+
 func init() {
 	flag.StringVar(&authCookie, "cookie", "", "Cookie used for chat authentication and API access")
 	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
@@ -48,11 +52,13 @@ func main() {
 	b.addParser(b.staticMessage)
 	b.addParser(b.nuke)
 	b.addParser(b.aegis)
-	b.addParser(b.antiSingleCharSpam)
+	b.addParser(b.noShortMsgSpam)
 	b.addParser(b.rename)
 	b.addParser(b.say)
 	b.addParser(b.addCommand)
 	b.addParser(b.mute)
+	// TODO enable later...
+	// b.addParser(b.printTopStreams)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
 	dgg.AddMuteHandler(b.onMute)
@@ -77,7 +83,7 @@ func main() {
 
 	info, err := b.getProfileInfo()
 	if err != nil {
-		debuglogger.Printf("userinfo: %s", err.Error())
+		debuglogger.Printf("userinfo: %s\n", err.Error())
 	} else {
 		debuglogger.Printf("userinfo: '%+v'\n", info)
 	}
@@ -110,7 +116,7 @@ func main() {
 			log.Println("[##] signal: handling SIGINT/SIGTERM")
 			err = logFile.Close()
 			if err != nil {
-				log.Printf("[##] error in cleanup: %s", err.Error())
+				log.Printf("[##] error in cleanup: %s\n", err.Error())
 			}
 			os.Exit(1)
 		}
@@ -143,12 +149,12 @@ func loadStaticCommands() {
 func saveStaticCommands() bool {
 	s, err := json.MarshalIndent(commands, "", "\t")
 	if err != nil {
-		log.Printf("failed marshaling commands, error: %v", err)
+		log.Printf("failed marshaling commands, error: %v\n", err)
 		return false
 	}
 	err = ioutil.WriteFile(commandJson, s, 0755)
 	if err != nil {
-		log.Printf("failed saving commands, error: %v", err)
+		log.Printf("failed saving commands, error: %v\n", err)
 		return false
 	}
 	return true
