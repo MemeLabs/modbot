@@ -37,6 +37,9 @@ func (b *bot) renameUser(oldName string, newName string) error {
 	var jsonStr = []byte(fmt.Sprintf(`{"username":"%s"}`, newName))
 	path := fmt.Sprintf("%s/admin/profiles/%s/username", backendURL, oldName)
 	req, err := http.NewRequest("POST", path, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return err
+	}
 	c := fmt.Sprintf("%s=%s", authCookieName, b.authCookie)
 	req.Header.Set("Cookie", c)
 	req.Header.Set("Content-Type", "application/json")
@@ -74,6 +77,9 @@ func (b *bot) buildGetRequest(path string) (*http.Request, error) {
 func (b *bot) getProfileInfo() (userInfo, error) {
 
 	req, err := b.buildGetRequest("/profile")
+	if err != nil {
+		return userInfo{}, err
+	}
 	client := &http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -94,6 +100,9 @@ func (b *bot) getStreamList() (streamData, error) {
 
 	// empty path (/api) holds stream data...
 	req, err := b.buildGetRequest("")
+	if err != nil {
+		return streamData{}, err
+	}
 	client := &http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
