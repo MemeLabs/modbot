@@ -309,7 +309,7 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 	var url string
 	viewerCount := 0
 	for _, strim := range sd.StreamList {
-		if strim.Service == "angelthump" && strim.Channel == username {
+		if strim.Service == "angelthump" && strings.EqualFold(strim.Channel, username) {
 			viewerCount = strim.Rustlers
 			url = fmt.Sprintf("%s%s", websiteURL, strim.URL)
 			if strim.Hidden {
