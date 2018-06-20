@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/voloshink/dggchat"
 )
@@ -20,12 +21,13 @@ var (
 	chatURL     string
 	backendURL  string
 	logFileName string
-	commandJson string
+	commandJSON string
 	logFile     *os.File
 )
 
 const (
 	websiteURL = "strims.gg"
+	pollTime   = time.Second * 2
 )
 
 func init() {
@@ -33,7 +35,7 @@ func init() {
 	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
 	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
-	flag.StringVar(&commandJson, "commands", "commands.json", "static commands file")
+	flag.StringVar(&commandJSON, "commands", "commands.json", "static commands file")
 	flag.Parse()
 }
 
@@ -57,8 +59,9 @@ func main() {
 	b.addParser(b.say)
 	b.addParser(b.addCommand)
 	b.addParser(b.mute)
-	// TODO enable later...
-	// b.addParser(b.printTopStreams)
+	b.addParser(b.printTopStreams)
+	b.addParser(b.modifyStream)
+	b.addParser(b.checkAT)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
 	dgg.AddMuteHandler(b.onMute)
@@ -134,7 +137,7 @@ func reOpenLog() *os.File {
 }
 
 func loadStaticCommands() {
-	b, err := ioutil.ReadFile(commandJson)
+	b, err := ioutil.ReadFile(commandJSON)
 	if err != nil {
 		panic(err)
 	}
@@ -152,7 +155,7 @@ func saveStaticCommands() bool {
 		log.Printf("failed marshaling commands, error: %v\n", err)
 		return false
 	}
-	err = ioutil.WriteFile(commandJson, s, 0755)
+	err = ioutil.WriteFile(commandJSON, s, 0755)
 	if err != nil {
 		log.Printf("failed saving commands, error: %v\n", err)
 		return false

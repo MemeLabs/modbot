@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/voloshink/dggchat"
 )
@@ -23,7 +24,10 @@ func isMod(user dggchat.User) bool {
 func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
 	b.randomizer++
 	rnd := " " + strings.Repeat(".", b.randomizer%2)
-	s.SendMessage(m + rnd)
+	err := s.SendMessage(m + rnd)
+	if err != nil {
+		log.Printf("[##] send error: %s\n", err.Error())
+	}
 }
 
 func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
@@ -203,8 +207,17 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
+	// filter hidden streams
+	allStreams := sd.StreamList
+	filteredStreams := streamData{}
+	for _, v := range allStreams {
+		if !v.Hidden {
+			filteredStreams.StreamList = append(filteredStreams.StreamList, v)
+		}
+	}
+
 	// handle case that less than 3 streams are being watched...
-	maxlen := len(sd.StreamList)
+	maxlen := len(filteredStreams.StreamList)
 	if maxlen == 0 {
 		b.sendMessageDedupe("no streams are being watched", s)
 		return
@@ -215,9 +228,107 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 
 	// assumption: API gives json data sorted by "rustlers".
 	for i := 0; i < maxlen; i++ {
-		data := sd.StreamList[i]
-		// URL has leading slash
+		data := filteredStreams.StreamList[i]
+		// data.URL has leading slash
 		out := fmt.Sprintf("%d %s%s", data.Rustlers, websiteURL, data.URL)
 		b.sendMessageDedupe(out, s)
 	}
+}
+
+func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!modify") {
+		return
+	}
+
+	var sm streamModifier
+
+	//                       parts[2:], ...
+	// !modify youtube/memes nsfw !hidden ...
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 3 {
+		return
+	}
+
+	for _, extrapart := range parts[2:] {
+		switch extrapart {
+		case "nsfw":
+			sm.Nsfw = "true"
+		case "!nsfw":
+			sm.Nsfw = "false"
+		case "hidden":
+			sm.Hidden = "true"
+		case "!hidden":
+			sm.Hidden = "false"
+		}
+	}
+
+	identifier := parts[1]
+	err := b.setStreamAttributes(identifier, sm)
+	if err != nil {
+		log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' failed with '%s'\n",
+			identifier, sm, m.Sender.Nick, err.Error())
+
+		// TODO chat message less verbose
+		b.sendMessageDedupe(fmt.Sprintf("modify: %s", err), s)
+		return
+	}
+	log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' success!\n",
+		identifier, sm, m.Sender.Nick)
+	b.sendMessageDedupe("modify success", s)
+}
+
+// !check ATusername
+func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!check") {
+		return
+	}
+
+	parts := strings.Split(m.Message, " ")
+	if len(parts) != 2 {
+		return
+	}
+	username := parts[1]
+
+	atd, err := b.getATUserData(username)
+	if err != nil {
+		log.Printf("[##] checkAT error1: '%s'\n",
+			err.Error())
+		b.sendMessageDedupe("error getting api data", s)
+		return
+	}
+
+	// additionally check strim data
+	sd, err := b.getStreamList()
+	if err != nil {
+		log.Printf("[##] checkAT error2: '%s'\n",
+			err.Error())
+		b.sendMessageDedupe("error getting api data", s)
+		return
+	}
+
+	var url string
+	viewerCount := 0
+	for _, strim := range sd.StreamList {
+		if strim.Service == "angelthump" && strim.Channel == username {
+			viewerCount = strim.Rustlers
+			url = fmt.Sprintf("%s%s", websiteURL, strim.URL)
+			if strim.Hidden {
+				b.sendMessageDedupe("not found", s)
+				return
+			}
+		}
+	}
+
+	// might be live on AT, but no rustlers: disregard.
+	if viewerCount == 0 {
+		b.sendMessageDedupe("not found", s)
+		return
+	}
+
+	output := fmt.Sprintf("%s is live for %s with %d rustlers and %d viewers at %s",
+		atd.Username, time.Since(atd.CreatedAt).Round(time.Second),
+		viewerCount, atd.Viewers, url)
+
+	b.sendMessageDedupe(output, s)
+
 }
