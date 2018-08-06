@@ -67,6 +67,10 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 	// the command itself will be last in the log and caught, exclude that one.
 	// TODO: except if the command was issued via PM...
 	for _, m := range b.log[:len(b.log)-1] {
+		// don't nuke mods.
+		if isMod(m.Sender) {
+			continue
+		}
 
 		var isBad bool
 		if isRegexNuke {
