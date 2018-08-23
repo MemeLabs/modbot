@@ -95,7 +95,7 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 
 	// if user gave wrong modifier(s) like "hide" (vs "hidden")
 	if len(j) <= 3 {
-		return errors.New("Could not find any valid modifiers")
+		return errors.New("could not find any valid modifiers")
 	}
 
 	path := fmt.Sprintf("%s/admin/streams/%s", backendURL, identifier)

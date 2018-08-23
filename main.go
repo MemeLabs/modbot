@@ -149,7 +149,7 @@ func fileExists(name string) bool {
 func loadStaticCommands() {
 
 	if !fileExists(commandJSON) {
-		log.Printf("Creating empty commands file %s\n", commandJSON)
+		log.Printf("creating empty commands file %s\n", commandJSON)
 		os.Create(commandJSON)
 		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0755)
 		if err != nil {
