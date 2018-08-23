@@ -127,6 +127,7 @@ func main() {
 }
 
 func reOpenLog() *os.File {
+
 	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
 		panic(err)
@@ -136,7 +137,26 @@ func reOpenLog() *os.File {
 	return f
 }
 
+func fileExists(name string) bool {
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
+}
+
 func loadStaticCommands() {
+
+	if !fileExists(commandJSON) {
+		log.Printf("Creating empty commands file %s\n", commandJSON)
+		os.Create(commandJSON)
+		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	b, err := ioutil.ReadFile(commandJSON)
 	if err != nil {
 		panic(err)

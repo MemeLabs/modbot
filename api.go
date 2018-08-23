@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -71,8 +72,10 @@ func (b *bot) renameUser(oldName string, newName string) error {
 
 // string because we don't want false default bools when marshaling
 type streamModifier struct {
-	Nsfw   string `json:"nsfw,omitempty"`
-	Hidden string `json:"hidden,omitempty"`
+	Nsfw     string `json:"nsfw,omitempty"`
+	Hidden   string `json:"hidden,omitempty"`
+	Afk      string `json:"afk,omitempty"`
+	Promoted string `json:"promoted,omitempty"`
 }
 
 // Modify stream attributes (nsfw/hidden)
@@ -89,6 +92,11 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 	j := string(jsonStr[:])
 	j = strings.Replace(j, "\"true\"", "true", -1)
 	j = strings.Replace(j, "\"false\"", "false", -1)
+
+	// if user gave wrong modifier(s) like "hide" (vs "hidden")
+	if len(j) <= 3 {
+		return errors.New("Could not find any valid modifiers")
+	}
 
 	path := fmt.Sprintf("%s/admin/streams/%s", backendURL, identifier)
 	req, err := http.NewRequest("POST", path, bytes.NewBuffer([]byte(j)))
@@ -199,8 +207,10 @@ func (b *bot) getATUserData(username string) (atData, error) {
 		return atData{}, err
 	}
 
-	if resp.StatusCode != 200 {
-		return atData{}, fmt.Errorf("Status code %d", resp.StatusCode)
+	// don't check status code, the backend doesn't report it correctly.
+	// if user does not exist, content type is text/html.
+	if !strings.Contains(resp.Header.Get("content-type"), "application/json") {
+		return atData{}, errors.New("User not found - 404")
 	}
 
 	var atd atData

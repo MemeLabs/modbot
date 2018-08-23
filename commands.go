@@ -263,7 +263,16 @@ func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
 			sm.Hidden = "true"
 		case "!hidden":
 			sm.Hidden = "false"
+		case "afk":
+			sm.Afk = "true"
+		case "!afk":
+			sm.Afk = "false"
+		case "promoted":
+			sm.Promoted = "true"
+		case "!promoted":
+			sm.Promoted = "false"
 		}
+
 	}
 
 	identifier := parts[1]
@@ -297,6 +306,13 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 	if err != nil {
 		log.Printf("[##] checkAT error1: '%s'\n",
 			err.Error())
+
+		// workaround... depends on content of error message
+		if strings.Contains(err.Error(), "404") {
+			b.sendMessageDedupe("not found", s)
+			return
+		}
+
 		b.sendMessageDedupe("error getting api data", s)
 		return
 	}
