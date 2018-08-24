@@ -51,17 +51,19 @@ func main() {
 
 	// init bot
 	b := newBot(authCookie, 250)
-	b.addParser(b.staticMessage)
-	b.addParser(b.nuke)
-	b.addParser(b.aegis)
-	b.addParser(b.noShortMsgSpam)
-	b.addParser(b.rename)
-	b.addParser(b.say)
-	b.addParser(b.addCommand)
-	b.addParser(b.mute)
-	b.addParser(b.printTopStreams)
-	b.addParser(b.modifyStream)
-	b.addParser(b.checkAT)
+	b.addParser(
+		b.staticMessage,
+		b.nuke,
+		b.aegis,
+		b.noShortMsgSpam,
+		b.rename,
+		b.say,
+		b.addCommand,
+		b.mute,
+		b.printTopStreams,
+		b.modifyStream,
+		b.checkAT,
+	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
 	dgg.AddMuteHandler(b.onMute)

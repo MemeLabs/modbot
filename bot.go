@@ -31,8 +31,10 @@ func newBot(authCookie string, maxLogLines int) *bot {
 
 }
 
-func (b *bot) addParser(p func(m dggchat.Message, s *dggchat.Session)) {
-	b.parsers = append(b.parsers, p)
+func (b *bot) addParser(p ...func(m dggchat.Message, s *dggchat.Session)) {
+	for _, parser := range p {
+		b.parsers = append(b.parsers, parser)
+	}
 }
 
 func (b *bot) onMessage(m dggchat.Message, s *dggchat.Session) {
