@@ -250,7 +250,5 @@ func (b *bot) banATuser(username string, ban bool) (string, error) {
 		return "", err
 	}
 
-	fmt.Println(string(responseData))
-
 	return fmt.Sprintf("drop: %s", string(responseData)), nil
 }
