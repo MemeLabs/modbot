@@ -403,3 +403,25 @@ func (b *bot) embedLink(m dggchat.Message, s *dggchat.Session) {
 		b.sendMessageDedupe(embed, s)
 	}
 }
+
+// !(un)drop atUser
+func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || (!strings.HasPrefix(m.Message, "!drop") && !strings.HasPrefix(m.Message, "!undrop")) {
+		return
+	}
+
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+
+	doBan := parts[0] == "!drop"
+	username := parts[1]
+	reply, err := b.banATuser(username, doBan)
+	if err != nil {
+		log.Println(fmt.Sprintf("drop error: '%s'", err.Error()))
+		return
+	}
+
+	b.sendMessageDedupe(reply, s)
+}

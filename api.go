@@ -221,3 +221,36 @@ func (b *bot) getATUserData(username string) (atData, error) {
 
 	return atd, nil
 }
+
+// (un)ban AT user
+func (b *bot) banATuser(username string, ban bool) (string, error) {
+
+	action := "unban"
+	if ban {
+		action = "ban"
+	}
+
+	path := fmt.Sprintf("https://angelthump.com/admin/%s/%s", action, username)
+
+	req, err := http.NewRequest(http.MethodGet, path, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("X-Bot", "botnet")
+	req.Header.Set("Authorization", fmt.Sprintf("key %s", atAdminToken))
+
+	client := &http.Client{Timeout: apiRequestTimeout * 2}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	responseData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println(string(responseData))
+
+	return fmt.Sprintf("drop: %s", string(responseData)), nil
+}

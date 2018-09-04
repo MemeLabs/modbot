@@ -16,13 +16,14 @@ import (
 )
 
 var (
-	debuglogger = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
-	authCookie  string
-	chatURL     string
-	backendURL  string
-	logFileName string
-	commandJSON string
-	logFile     *os.File
+	debuglogger  = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
+	authCookie   string
+	chatURL      string
+	backendURL   string
+	logFileName  string
+	commandJSON  string
+	atAdminToken string
+	logFile      *os.File
 )
 
 const (
@@ -37,6 +38,7 @@ func init() {
 	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
 	flag.StringVar(&commandJSON, "commands", "commands.json", "static commands file")
+	flag.StringVar(&atAdminToken, "attoken", "", "angelthump admin token (optional)")
 	flag.Parse()
 }
 
@@ -65,6 +67,7 @@ func main() {
 		b.modifyStream,
 		b.checkAT,
 		b.embedLink,
+		b.dropAT,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
