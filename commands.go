@@ -287,7 +287,7 @@ func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
 	}
 	log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' success!\n",
 		identifier, sm, m.Sender.Nick)
-	b.sendMessageDedupe("modify success", s)
+	b.sendMessageDedupe(fmt.Sprintf("modify success %s", modifyEmote), s)
 }
 
 // !check ATusername
@@ -351,4 +351,55 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 
 	b.sendMessageDedupe(output, s)
 
+}
+
+var (
+	// youtube ids include "-" and "_".
+	commonMatch = "([\\w-]{1,30})"
+	matchMap    = make(map[*regexp.Regexp]string)
+
+	// collides with twitchRe so check it first...
+	twitchVodRe = regexp.MustCompile(fmt.Sprintf("twitch.tv/videos/%s", commonMatch))
+	twitchRe    = regexp.MustCompile(fmt.Sprintf("twitch.tv/%s", commonMatch))
+	atRe        = regexp.MustCompile(fmt.Sprintf("angelthump.com/embed/%s", commonMatch))
+	youtubeRe1  = regexp.MustCompile(fmt.Sprintf("youtube.com/watch\\?v=%s", commonMatch))
+	youtubeRe2  = regexp.MustCompile(fmt.Sprintf("youtu.be/%s", commonMatch))
+)
+
+func findEmbed(source string) string {
+
+	// these are the path mappings on strims
+	matchMap[twitchVodRe] = "twitch-vod"
+	matchMap[twitchRe] = "twitch"
+	matchMap[atRe] = "angelthump"
+	matchMap[youtubeRe1] = "youtube"
+	matchMap[youtubeRe2] = "youtube"
+
+	for regexp, url := range matchMap {
+		// FindStringSubmatch returns the full match and then whatever capture groups...
+		// We are interested in the first and (normally) only match after the full (very first) one.
+		// E.g. return value could be [twitch.tv/username, username] - we want the latter: "username".
+		if match := regexp.FindStringSubmatch(source); len(match) == 2 {
+			return fmt.Sprintf("%s/%s/%s", websiteURL, url, match[1])
+		}
+	}
+
+	return ""
+}
+
+// !embed link
+func (b *bot) embedLink(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!embed") {
+		return
+	}
+
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+	link := parts[1]
+	embed := findEmbed(link)
+	if embed != "" {
+		b.sendMessageDedupe(embed, s)
+	}
 }

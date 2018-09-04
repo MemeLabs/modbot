@@ -26,8 +26,9 @@ var (
 )
 
 const (
-	websiteURL = "strims.gg"
-	pollTime   = time.Second * 2
+	websiteURL  = "strims.gg"
+	pollTime    = time.Second * 2
+	modifyEmote = "BOGGED"
 )
 
 func init() {
@@ -63,6 +64,7 @@ func main() {
 		b.printTopStreams,
 		b.modifyStream,
 		b.checkAT,
+		b.embedLink,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
