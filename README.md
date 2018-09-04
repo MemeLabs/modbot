@@ -12,6 +12,7 @@
 | !nuke | string | !nuke badword123 | default 10m duration.
 | !nukeregex | regexp | !nukeregex (MiyanoHype ){10,} | default 10m duration.
 | !aegis | _ | | undo all past nukes.
+| !(un)drop | AT_name | !undrop test | Ban or unban user from angelthump service.
 
 ### public commands
 
