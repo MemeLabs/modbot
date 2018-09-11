@@ -22,6 +22,12 @@ func isMod(user dggchat.User) bool {
 
 // TODO
 func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
+
+	if logOnly {
+		log.Printf("[##] LOGONLY reply: %s\n", m)
+		return
+	}
+
 	b.randomizer++
 	rnd := " " + strings.Repeat(".", b.randomizer%2)
 	err := s.SendMessage(m + rnd)
@@ -198,6 +204,24 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
+// !embed link
+func (b *bot) embedLink(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!embed") {
+		return
+	}
+
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+	link := parts[1]
+	id := parseIdentifier(link)
+	if id != "" {
+		embed := fmt.Sprintf("%s/%s", websiteURL, id)
+		b.sendMessageDedupe(embed, s)
+	}
+}
+
 // !stream or !strim(s) -- show top streams in chat
 func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!stream") && !strings.HasPrefix(m.Message, "!strim") {
@@ -239,22 +263,12 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
-func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
-	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!modify") {
-		return
-	}
+func parseModifiers(s []string) (streamModifier, error) {
 
 	var sm streamModifier
 
-	//                       parts[2:], ...
-	// !modify youtube/memes nsfw !hidden ...
-	parts := strings.Split(m.Message, " ")
-	if len(parts) < 3 {
-		return
-	}
-
-	for _, extrapart := range parts[2:] {
-		switch extrapart {
+	for _, part := range s {
+		switch part {
 		case "nsfw":
 			sm.Nsfw = "true"
 		case "!nsfw":
@@ -271,23 +285,46 @@ func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
 			sm.Promoted = "true"
 		case "!promoted":
 			sm.Promoted = "false"
+		default:
+			return streamModifier{}, fmt.Errorf("invalid modifier: '%s'", part)
 		}
+	}
 
+	return sm, nil
+}
+
+func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!modify") {
+		return
+	}
+
+	//                       parts[2:], ...
+	// !modify youtube/memes nsfw !hidden ...
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 3 {
+		return
+	}
+
+	sm, err := parseModifiers(parts[2:])
+	if err != nil {
+		b.sendMessageDedupe(fmt.Sprintf("%s %s", err.Error(), ominousEmote), s)
+		return
 	}
 
 	identifier := parts[1]
-	err := b.setStreamAttributes(identifier, sm)
+
+	err = b.setStreamAttributes(identifier, sm)
 	if err != nil {
 		log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' failed with '%s'\n",
 			identifier, sm, m.Sender.Nick, err.Error())
 
 		// TODO chat message less verbose
-		b.sendMessageDedupe(fmt.Sprintf("modify: %s", err), s)
+		b.sendMessageDedupe(fmt.Sprintf("modify: %s %s", err, ominousEmote), s)
 		return
 	}
 	log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' success!\n",
 		identifier, sm, m.Sender.Nick)
-	b.sendMessageDedupe(fmt.Sprintf("modify success %s", modifyEmote), s)
+	b.sendMessageDedupe(fmt.Sprintf("modify success %s", ominousEmote), s)
 }
 
 // !check ATusername
@@ -351,57 +388,6 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 
 	b.sendMessageDedupe(output, s)
 
-}
-
-var (
-	// youtube ids include "-" and "_".
-	commonMatch = "([\\w-]{1,30})"
-	matchMap    = make(map[*regexp.Regexp]string)
-
-	// collides with twitchRe so check it first...
-	twitchVodRe = regexp.MustCompile(fmt.Sprintf("twitch.tv/videos/%s", commonMatch))
-	twitchRe    = regexp.MustCompile(fmt.Sprintf("twitch.tv/%s", commonMatch))
-	atRe        = regexp.MustCompile(fmt.Sprintf("angelthump.com/embed/%s", commonMatch))
-	youtubeRe1  = regexp.MustCompile(fmt.Sprintf("youtube.com/watch\\?v=%s", commonMatch))
-	youtubeRe2  = regexp.MustCompile(fmt.Sprintf("youtu.be/%s", commonMatch))
-)
-
-func findEmbed(source string) string {
-
-	// these are the path mappings on strims
-	matchMap[twitchVodRe] = "twitch-vod"
-	matchMap[twitchRe] = "twitch"
-	matchMap[atRe] = "angelthump"
-	matchMap[youtubeRe1] = "youtube"
-	matchMap[youtubeRe2] = "youtube"
-
-	for regexp, url := range matchMap {
-		// FindStringSubmatch returns the full match and then whatever capture groups...
-		// We are interested in the first and (normally) only match after the full (very first) one.
-		// E.g. return value could be [twitch.tv/username, username] - we want the latter: "username".
-		if match := regexp.FindStringSubmatch(source); len(match) == 2 {
-			return fmt.Sprintf("%s/%s/%s", websiteURL, url, match[1])
-		}
-	}
-
-	return ""
-}
-
-// !embed link
-func (b *bot) embedLink(m dggchat.Message, s *dggchat.Session) {
-	if !strings.HasPrefix(m.Message, "!embed") {
-		return
-	}
-
-	parts := strings.Split(m.Message, " ")
-	if len(parts) < 2 {
-		return
-	}
-	link := parts[1]
-	embed := findEmbed(link)
-	if embed != "" {
-		b.sendMessageDedupe(embed, s)
-	}
 }
 
 // !(un)drop atUser

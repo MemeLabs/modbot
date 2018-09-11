@@ -23,13 +23,14 @@ var (
 	logFileName  string
 	commandJSON  string
 	atAdminToken string
+	logOnly      bool
 	logFile      *os.File
 )
 
 const (
-	websiteURL  = "strims.gg"
-	pollTime    = time.Second * 2
-	modifyEmote = "BOGGED"
+	websiteURL   = "strims.gg"
+	pollTime     = time.Second * 2
+	ominousEmote = "BOGGED"
 )
 
 func init() {
@@ -39,6 +40,7 @@ func init() {
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
 	flag.StringVar(&commandJSON, "commands", "commands.json", "static commands file")
 	flag.StringVar(&atAdminToken, "attoken", "", "angelthump admin token (optional)")
+	flag.BoolVar(&logOnly, "logonly", false, "only 'reply' to logfile, not chat (for debugging)")
 	flag.Parse()
 }
 
@@ -88,7 +90,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	debuglogger.Println("connected...")
+	debuglogger.Println("[##] connected...")
 	defer dgg.Close()
 
 	info, err := b.getProfileInfo()
@@ -105,7 +107,10 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	debuglogger.Println("waiting for signals...")
+	if logOnly {
+		debuglogger.Println("[##] started in logonly mode.")
+	}
+	debuglogger.Println("[##] waiting for signals...")
 	for {
 		sig := <-signals
 		switch sig {

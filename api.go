@@ -35,6 +35,10 @@ type streamData struct {
 	} `json:"stream_list"`
 }
 
+type errorResp struct {
+	Error string `json:"error"`
+}
+
 func (b *bot) initHeaders(req *http.Request) *http.Request {
 
 	c := fmt.Sprintf("%s=%s", authCookieName, b.authCookie)
@@ -78,8 +82,8 @@ type streamModifier struct {
 	Promoted string `json:"promoted,omitempty"`
 }
 
-// Modify stream attributes (nsfw/hidden)
-// identifier can be stream_path or "{service}/{channel}" (including the slash)
+// Modify stream attributes (nsfw/hidden/...)
+// identifier can be a stream_path (simple string) or "{service}/{channel}"
 func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) error {
 
 	jsonStr, err := json.Marshal(&modifier)
@@ -93,11 +97,6 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 	j = strings.Replace(j, "\"true\"", "true", -1)
 	j = strings.Replace(j, "\"false\"", "false", -1)
 
-	// if user gave wrong modifier(s) like "hide" (vs "hidden")
-	if len(j) <= 3 {
-		return errors.New("could not find any valid modifiers")
-	}
-
 	path := fmt.Sprintf("%s/admin/streams/%s", backendURL, identifier)
 	req, err := http.NewRequest("POST", path, bytes.NewBuffer([]byte(j)))
 	if err != nil {
@@ -110,14 +109,19 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 	if err != nil {
 		return err
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode == 200 {
+		return nil
+	}
+
+	// backend tells us a custom error message
+	var e errorResp
+	err = json.NewDecoder(resp.Body).Decode(&e)
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("%s", body)
-	}
-	return nil
+
+	return fmt.Errorf("error: %s", e.Error)
 }
 
 // build common get request...
