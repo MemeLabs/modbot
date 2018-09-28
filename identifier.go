@@ -19,6 +19,7 @@ var (
 	youtubeRe1 = regexp.MustCompile(fmt.Sprintf("youtube\\.com/watch.*?[&?]v=%s", commonMatch))
 	youtubeRe2 = regexp.MustCompile(fmt.Sprintf("youtu\\.be/%s", commonMatch))
 	youtubeRe3 = regexp.MustCompile(fmt.Sprintf("youtube\\.com/embed/%s", commonMatch))
+	facebookRe = regexp.MustCompile(fmt.Sprintf("facebook\\.com/.*?/videos/%s/?", commonMatch))
 
 	// these are the path mappings on strims
 	matchMap = map[*regexp.Regexp]string{
@@ -28,6 +29,7 @@ var (
 		youtubeRe1:  "youtube",
 		youtubeRe2:  "youtube",
 		youtubeRe3:  "youtube",
+		facebookRe:  "facebook",
 	}
 )
 
