@@ -20,6 +20,7 @@ var (
 	youtubeRe2 = regexp.MustCompile(fmt.Sprintf("youtu\\.be/%s", commonMatch))
 	youtubeRe3 = regexp.MustCompile(fmt.Sprintf("youtube\\.com/embed/%s", commonMatch))
 	facebookRe = regexp.MustCompile(fmt.Sprintf("facebook\\.com/.*?/videos/%s/?", commonMatch))
+	mixerRe    = regexp.MustCompile(fmt.Sprintf("mixer\\.com/(?:embed/player/)?%s$", commonMatch))
 
 	// these are the path mappings on strims
 	matchMap = map[*regexp.Regexp]string{
@@ -30,6 +31,7 @@ var (
 		youtubeRe2:  "youtube",
 		youtubeRe3:  "youtube",
 		facebookRe:  "facebook",
+		mixerRe:     "mixer",
 	}
 )
 

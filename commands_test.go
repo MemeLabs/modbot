@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -21,6 +20,11 @@ func TestParseIdentifier(t *testing.T) {
 		"bogus www.twitch.tv/videos/777777777 bogus":                   "twitch-vod/777777777",
 		"https://www.facebook.com/ESLOneCSGO/videos/2520412647976160/": "facebook/2520412647976160",
 		"facebook.com/xx/videos/2520412647976160":                      "facebook/2520412647976160",
+		"mixer.com/embed/player/test__123":                             "mixer/test__123",
+		"https://mixer.com/test__123":                                  "mixer/test__123",
+		"mixer.com/embed":                                              "mixer/embed",
+		"mixer.com/embed/":                                             "",
+		"mixer.com/embed/player/":                                      "",
 		"bogus.com/watch?v=aaaaaaaaaaa":                                "",
 	}
 
@@ -80,6 +84,6 @@ func TestParseModifiers(t *testing.T) {
 	if err == nil {
 		t.Error("Error in modifier s2")
 	}
-	fmt.Println(err.Error())
+	// fmt.Println(err.Error())
 
 }
