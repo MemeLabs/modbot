@@ -1,3 +1,4 @@
 modbot
 modbot.exe
 config.json
+*.db
