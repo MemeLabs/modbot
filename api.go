@@ -41,7 +41,7 @@ type errorResp struct {
 
 func (b *bot) initHeaders(req *http.Request) *http.Request {
 
-	c := fmt.Sprintf("%s=%s", authCookieName, b.authCookie)
+	c := fmt.Sprintf("%s=%s", authCookieName, b.config.AuthCookie)
 	req.Header.Set("Cookie", c)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Bot", "botnet")
@@ -52,7 +52,7 @@ func (b *bot) initHeaders(req *http.Request) *http.Request {
 func (b *bot) renameUser(oldName string, newName string) error {
 
 	var jsonStr = []byte(fmt.Sprintf(`{"username":"%s"}`, newName))
-	path := fmt.Sprintf("%s/admin/profiles/%s/username", backendURL, oldName)
+	path := fmt.Sprintf("%s/admin/profiles/%s/username", b.config.APIUrl, oldName)
 	req, err := http.NewRequest("POST", path, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 	j = strings.Replace(j, "\"true\"", "true", -1)
 	j = strings.Replace(j, "\"false\"", "false", -1)
 
-	path := fmt.Sprintf("%s/admin/streams/%s", backendURL, identifier)
+	path := fmt.Sprintf("%s/admin/streams/%s", b.config.APIUrl, identifier)
 	req, err := http.NewRequest("POST", path, bytes.NewBuffer([]byte(j)))
 	if err != nil {
 		return err
@@ -126,8 +126,8 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 
 // build common get request...
 func (b *bot) buildGetRequest(path string) (*http.Request, error) {
-
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", backendURL, path), nil)
+	url := fmt.Sprintf("%s%s", b.config.APIUrl, path)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func (b *bot) banATuser(username string, ban bool) (string, error) {
 		return "", err
 	}
 	req.Header.Set("X-Bot", "botnet")
-	req.Header.Set("Authorization", fmt.Sprintf("key %s", atAdminToken))
+	req.Header.Set("Authorization", fmt.Sprintf("key %s", b.config.AngelthumpAdminToken))
 
 	client := &http.Client{Timeout: apiRequestTimeout * 2}
 	resp, err := client.Do(req)

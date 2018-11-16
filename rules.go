@@ -11,6 +11,11 @@ import (
 // Prevent repeated posting of short messages.
 func (b *bot) noShortMsgSpam(m dggchat.Message, s *dggchat.Session) {
 
+	// don't mod moderators
+	if isMod(m.Sender) {
+		return
+	}
+
 	// only proceed if the current message is "bad"
 	if len(m.Message) > 2 {
 		return

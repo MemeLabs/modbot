@@ -2,20 +2,26 @@ package main
 
 import (
 	"log"
+	"sync"
 
+	"github.com/jinzhu/gorm"
 	"github.com/voloshink/dggchat"
 )
 
 type bot struct {
+	db              *gorm.DB
 	log             []dggchat.Message
 	maxLogLines     int
 	parsers         []func(m dggchat.Message, s *dggchat.Session)
 	lastNukeVictims []string
 	randomizer      int
-	authCookie      string
+	config          *config
+
+	commands     []*staticCommand
+	commandMutex sync.Mutex
 }
 
-func newBot(authCookie string, maxLogLines int) *bot {
+func newBot(maxLogLines int) *bot {
 
 	if maxLogLines < 0 {
 		maxLogLines = 0
@@ -25,7 +31,7 @@ func newBot(authCookie string, maxLogLines int) *bot {
 		log:         make([]dggchat.Message, maxLogLines),
 		maxLogLines: maxLogLines,
 		randomizer:  0, // TODO workaround for dup msgs, remove me...
-		authCookie:  authCookie,
+		commands:    []*staticCommand{},
 	}
 	return &b
 

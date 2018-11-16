@@ -1,0 +1,9 @@
+{
+    "authCookie": "",
+    "chatWebsocket": "wss://chat.strims.gg/ws",
+    "apiUrl": "https://strims.gg/api",
+    "logFile": "/tmp/chatlog/chatlog.log",
+    "logOnly": false,
+    "angelthumpAdminToken": "",
+    "database": "bot.db"
+}

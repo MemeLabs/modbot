@@ -1,10 +1,7 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -16,15 +13,8 @@ import (
 )
 
 var (
-	debuglogger  = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
-	authCookie   string
-	chatURL      string
-	backendURL   string
-	logFileName  string
-	commandJSON  string
-	atAdminToken string
-	logOnly      bool
-	logFile      *os.File
+	debuglogger = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
+	logFile     *os.File
 )
 
 const (
@@ -33,29 +23,19 @@ const (
 	ominousEmote = "BOGGED"
 )
 
-func init() {
-	flag.StringVar(&authCookie, "cookie", "", "Cookie used for chat authentication and API access")
-	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
-	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
-	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
-	flag.StringVar(&commandJSON, "commands", "commands.json", "static commands file")
-	flag.StringVar(&atAdminToken, "attoken", "", "angelthump admin token (optional)")
-	flag.BoolVar(&logOnly, "logonly", false, "only 'reply' to logfile, not chat (for debugging)")
-	flag.Parse()
-}
-
 func main() {
-
-	loadStaticCommands()
+	// init bot
+	b := newBot(250)
+	b.loadConfig()
+	b.newDatabase()
+	b.LoadStaticCommands()
 
 	// TODO dggchat lib isn't flexible with the cookie name, workaround...
-	dgg, err := dggchat.New(";jwt=" + authCookie)
+	dgg, err := dggchat.New(";jwt=" + b.config.AuthCookie)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	// init bot
-	b := newBot(authCookie, 250)
 	b.addParser(
 		b.staticMessage,
 		b.nuke,
@@ -64,6 +44,7 @@ func main() {
 		b.rename,
 		b.say,
 		b.addCommand,
+		b.deleteCommand,
 		b.mute,
 		b.printTopStreams,
 		b.modifyStream,
@@ -80,7 +61,7 @@ func main() {
 	dgg.AddSocketErrorHandler(b.onSocketError)
 	dgg.AddPMHandler(b.onPMHandler)
 
-	u, err := url.Parse(chatURL)
+	u, err := url.Parse(b.config.ChatWebsocket)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -95,19 +76,19 @@ func main() {
 
 	info, err := b.getProfileInfo()
 	if err != nil {
-		debuglogger.Printf("userinfo: %s\n", err.Error())
+		debuglogger.Printf("userinfo: %s", err.Error())
 	} else {
-		debuglogger.Printf("userinfo: '%+v'\n", info)
+		debuglogger.Printf("userinfo: '%+v'", info)
 	}
 
 	// log to file and stdout
-	logFile = reOpenLog()
+	logFile = b.reOpenLog()
 	log.Println("[##] Restart")
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	if logOnly {
+	if b.config.LogOnly {
 		debuglogger.Println("[##] started in logonly mode.")
 	}
 	debuglogger.Println("[##] waiting for signals...")
@@ -122,7 +103,7 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			logFile = reOpenLog()
+			logFile = b.reOpenLog()
 
 		// exit on interrupt
 		case syscall.SIGTERM:
@@ -138,9 +119,9 @@ func main() {
 	}
 }
 
-func reOpenLog() *os.File {
+func (b *bot) reOpenLog() *os.File {
 
-	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	f, err := os.OpenFile(b.config.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
 		panic(err)
 	}
@@ -154,43 +135,6 @@ func fileExists(name string) bool {
 		if os.IsNotExist(err) {
 			return false
 		}
-	}
-	return true
-}
-
-func loadStaticCommands() {
-
-	if !fileExists(commandJSON) {
-		log.Printf("creating empty commands file %s\n", commandJSON)
-		os.Create(commandJSON)
-		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0755)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	b, err := ioutil.ReadFile(commandJSON)
-	if err != nil {
-		panic(err)
-	}
-	var cmnd map[string]string
-	err = json.Unmarshal(b, &cmnd)
-	if err != nil {
-		panic(err)
-	}
-	commands = cmnd
-}
-
-func saveStaticCommands() bool {
-	s, err := json.MarshalIndent(commands, "", "\t")
-	if err != nil {
-		log.Printf("failed marshaling commands, error: %v\n", err)
-		return false
-	}
-	err = ioutil.WriteFile(commandJSON, s, 0755)
-	if err != nil {
-		log.Printf("failed saving commands, error: %v\n", err)
-		return false
 	}
 	return true
 }

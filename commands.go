@@ -5,15 +5,9 @@ import (
 	"log"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/voloshink/dggchat"
-)
-
-var (
-	mutex    sync.Mutex
-	commands = map[string]string{}
 )
 
 func isMod(user dggchat.User) bool {
@@ -23,7 +17,7 @@ func isMod(user dggchat.User) bool {
 // TODO
 func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
 
-	if logOnly {
+	if b.config.LogOnly {
 		log.Printf("[##] LOGONLY reply: %s\n", m)
 		return
 	}
@@ -38,10 +32,15 @@ func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
 
 func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
 
-	for command, response := range commands {
-		if strings.HasPrefix(m.Message, command) {
+	b.commandMutex.Lock()
+	defer b.commandMutex.Unlock()
 
-			b.sendMessageDedupe(response, s)
+	for _, c := range b.commands {
+		if strings.HasPrefix(m.Message, c.Call) {
+			b.sendMessageDedupe(c.Message, s)
+			c.LastUse = time.Now().UTC()
+			c.LastUseBy = m.Sender.Nick
+			b.UpdateStaticCommand(c)
 			// only handle the first match
 			return
 		}
@@ -170,6 +169,37 @@ func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
 	s.SendMute(parts[1], -1)
 }
 
+// !deletecommand command
+func (b *bot) deleteCommand(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!deletecommand") {
+		return
+	}
+
+	parts := strings.SplitN(m.Message, " ", 3)
+	if len(parts) < 2 {
+		return
+	}
+
+	cmnd := strings.TrimSpace(parts[1])
+
+	b.commandMutex.Lock()
+	defer b.commandMutex.Unlock()
+
+	for i, c := range b.commands {
+		if strings.EqualFold(c.Call, cmnd) {
+			err := b.DeleteStaticCommands(c)
+			if err != nil {
+				log.Printf("[##] error deleting command: %v", err)
+				b.sendMessageDedupe("failed deleting command, check logs", s)
+				break
+			}
+			b.commands = append(b.commands[:i], b.commands[i+1:]...)
+			b.sendMessageDedupe(fmt.Sprintf("deleted %s", cmnd), s)
+			break
+		}
+	}
+}
+
 // !addcommand command response
 func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!addcommand") {
@@ -177,31 +207,48 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	// message itself can contain spaces
-	parts := strings.SplitN(m.Message, " ", -1)
+	parts := strings.SplitN(m.Message, " ", 3)
 	if len(parts) < 3 {
 		return
 	}
 
-	cmnd := parts[1]
+	cmnd := strings.TrimSpace(parts[1])
 	if !strings.HasPrefix(cmnd, "!") {
 		cmnd = "!" + cmnd
 	}
-	resp := strings.Join(parts[2:], " ")
-	mutex.Lock()
-	defer mutex.Unlock()
-	// TODO workaround to enable deletion
-	if resp == "_" {
-		delete(commands, cmnd)
-		b.sendMessageDedupe("deleted commands if it existed", s)
-	} else {
-		commands[cmnd] = resp
-		success := saveStaticCommands()
-		if success {
-			b.sendMessageDedupe(fmt.Sprintf("added new command %s", cmnd), s)
+	resp := strings.TrimSpace(parts[2])
+
+	b.commandMutex.Lock()
+	defer b.commandMutex.Unlock()
+
+	for _, c := range b.commands {
+		if strings.EqualFold(cmnd, c.Call) {
+			c.Message = resp
+			c.UpdatedBy = m.Sender.Nick
+			err := b.UpdateStaticCommand(c)
+			if err != nil {
+				log.Printf("[##] failed updating command: %v", err)
+				b.sendMessageDedupe("failed updating command, check logs", s)
+				return
+			}
+			b.sendMessageDedupe(fmt.Sprintf("updated command %s", cmnd), s)
 			return
 		}
-		b.sendMessageDedupe("failed saving command, check logs", s)
 	}
+
+	newC := &staticCommand{
+		Call:      cmnd,
+		Message:   resp,
+		CreatedBy: m.Sender.Nick,
+	}
+	c, err := b.AddStaticCommand(newC, m.Sender.Nick)
+	if err != nil {
+		log.Printf("[##] error adding command: %v", err)
+		b.sendMessageDedupe("failed saving command, check logs", s)
+		return
+	}
+	b.sendMessageDedupe(fmt.Sprintf("added new command %s", cmnd), s)
+	b.commands = append(b.commands, c)
 }
 
 // !embed link

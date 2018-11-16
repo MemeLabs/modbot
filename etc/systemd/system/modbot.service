@@ -1,0 +1,12 @@
+[Unit]
+Description=Strims.gg modbot
+After=network.target
+
+[Service]
+User=rustla
+Restart=always
+WorkingDirectory=/home/rustla/modbot
+ExecStart=/usr/bin/modbot
+
+[Install]
+WantedBy=multi-user.target
