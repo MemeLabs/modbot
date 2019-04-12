@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"regexp"
 	"strings"
 	"sync"
@@ -216,10 +217,26 @@ func (b *bot) embedLink(m dggchat.Message, s *dggchat.Session) {
 	}
 	link := parts[1]
 	id := parseIdentifier(link)
+
+	// TODO cleanup... also this should be synced with chat-gui... (spoiler is a keyword too but mostly unused)
+	extra := ""
+	if strings.Contains(strings.ToLower(m.Message), "nsfw") {
+		extra = " [nsfw]"
+	}
+	if strings.Contains(strings.ToLower(m.Message), "nsfl") {
+		extra = " [nsfl]"
+	}
+
 	if id != "" {
-		embed := fmt.Sprintf("%s/%s", websiteURL, id)
+		embed := fmt.Sprintf("%s/%s%s", websiteURL, id, extra)
 		b.sendMessageDedupe(embed, s)
 	}
+}
+
+// TOOD clean up...
+func isCommunityStream(path string) bool {
+	// "/twitch/test" it not. "/memer" is.
+	return strings.Count(path, "/") == 1 || strings.Contains(path, "angelthump")
 }
 
 // !stream or !strim(s) -- show top streams in chat
@@ -254,12 +271,36 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 		maxlen = 3
 	}
 
-	// assumption: API gives json data sorted by "rustlers".
-	for i := 0; i < maxlen; i++ {
+	alreadyPrinted := 0
+	// - assumption: API gives json data sorted by "rustlers".
+	// - first pass: give community streams preference
+	// - data.URL has leading slash
+	for i := 0; i < len(filteredStreams.StreamList) && alreadyPrinted < maxlen; i++ {
 		data := filteredStreams.StreamList[i]
-		// data.URL has leading slash
-		out := fmt.Sprintf("%d %s%s", data.Rustlers, websiteURL, data.URL)
-		b.sendMessageDedupe(out, s)
+		if isCommunityStream(data.URL) {
+			nsfw := ""
+			if data.Nsfw {
+				nsfw = " [nsfw]"
+			}
+			out := fmt.Sprintf("%d %s%s%s", data.Rustlers, websiteURL, data.URL, nsfw)
+			b.sendMessageDedupe(out, s)
+			alreadyPrinted++
+		}
+	}
+
+	// TODO clean me up...
+	for i := 0; alreadyPrinted < maxlen; i++ {
+		data := filteredStreams.StreamList[i]
+		if !isCommunityStream(data.URL) {
+			nsfw := ""
+			if data.Nsfw {
+				nsfw = " [nsfw]"
+			}
+			data := filteredStreams.StreamList[i]
+			out := fmt.Sprintf("%d %s%s%s", data.Rustlers, websiteURL, data.URL, nsfw)
+			b.sendMessageDedupe(out, s)
+			alreadyPrinted++
+		}
 	}
 }
 
@@ -382,8 +423,15 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
+	startTime, err := time.Parse(time.RFC3339Nano, atd.CreatedAt)
+	if err != nil {
+		log.Printf("[##] checkAT time: '%s'\n",
+			err.Error())
+		b.sendMessageDedupe("error converting api data", s)
+		return
+	}
 	output := fmt.Sprintf("%s is live for %s with %d rustlers and %d viewers at %s",
-		atd.Username, time.Since(atd.CreatedAt).Round(time.Second),
+		atd.Username, humanizeDuration(time.Since(startTime)),
 		viewerCount, atd.Viewers, url)
 
 	b.sendMessageDedupe(output, s)
@@ -410,4 +458,37 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	b.sendMessageDedupe(reply, s)
+}
+
+// https://gist.github.com/harshavardhana/327e0577c4fed9211f65
+func humanizeDuration(duration time.Duration) string {
+	days := int64(duration.Hours() / 24)
+	hours := int64(math.Mod(duration.Hours(), 24))
+	minutes := int64(math.Mod(duration.Minutes(), 60))
+	//seconds := int64(math.Mod(duration.Seconds(), 60))
+
+	chunks := []struct {
+		singularName string
+		amount       int64
+	}{
+		{"day", days},
+		{"hour", hours},
+		{"min", minutes},
+		//{"sec", seconds},
+	}
+
+	parts := []string{}
+
+	for _, chunk := range chunks {
+		switch chunk.amount {
+		case 0:
+			continue
+		case 1:
+			parts = append(parts, fmt.Sprintf("%d%s", chunk.amount, chunk.singularName))
+		default:
+			parts = append(parts, fmt.Sprintf("%d%ss", chunk.amount, chunk.singularName))
+		}
+	}
+
+	return strings.Join(parts, " ")
 }

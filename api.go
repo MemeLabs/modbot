@@ -182,21 +182,21 @@ func (b *bot) getStreamList() (streamData, error) {
 
 // at api data
 type atData struct {
-	Username          string    `json:"username"`
-	Live              bool      `json:"live"`
-	Title             string    `json:"title"`
-	Viewers           int       `json:"viewers"`
-	PasswordProtected bool      `json:"passwordProtected"`
-	Banned            bool      `json:"banned"`
-	Poster            string    `json:"poster"`
-	Thumbnail         string    `json:"thumbnail"`
-	CreatedAt         time.Time `json:"created_at"`
+	Username          string `json:"username"`
+	Live              bool   `json:"live"`
+	Title             string `json:"title"`
+	Viewers           int    `json:"viewers"`
+	PasswordProtected bool   `json:"passwordProtected"`
+	Banned            bool   `json:"banned"`
+	Poster            string `json:"poster"`
+	Thumbnail         string `json:"thumbnail"`
+	CreatedAt         string `json:"created_at"`
 }
 
 // interact with at backend
 func (b *bot) getATUserData(username string) (atData, error) {
 
-	path := fmt.Sprintf("https://angelthump.com/api/%s", username)
+	path := fmt.Sprintf("https://api.angelthump.com/v1/%s", username)
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return atData{}, err
@@ -234,12 +234,14 @@ func (b *bot) banATuser(username string, ban bool) (string, error) {
 		action = "ban"
 	}
 
-	path := fmt.Sprintf("https://angelthump.com/admin/%s/%s", action, username)
+	path := fmt.Sprintf("https://api.angelthump.com/admin/v1/%s", action)
 
-	req, err := http.NewRequest(http.MethodGet, path, nil)
+	req, err := http.NewRequest(http.MethodPost, path, strings.NewReader(
+		fmt.Sprintf("username=%s", username)))
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("X-Bot", "botnet")
 	req.Header.Set("Authorization", fmt.Sprintf("key %s", atAdminToken))
 
