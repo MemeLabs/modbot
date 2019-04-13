@@ -387,7 +387,7 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 
 		// workaround... depends on content of error message
 		if strings.Contains(err.Error(), "404") {
-			b.sendMessageDedupe("not found", s)
+			log.Printf("[##] check: not found\n")
 			return
 		}
 
@@ -411,7 +411,7 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 			viewerCount = strim.Rustlers
 			url = fmt.Sprintf("%s%s", websiteURL, strim.URL)
 			if strim.Hidden {
-				b.sendMessageDedupe("not found", s)
+				log.Printf("[##] check: not found\n")
 				return
 			}
 		}
@@ -419,7 +419,7 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 
 	// might be live on AT, but no rustlers: disregard.
 	if viewerCount == 0 {
-		b.sendMessageDedupe("not found", s)
+		log.Printf("[##] check: not found\n")
 		return
 	}
 
