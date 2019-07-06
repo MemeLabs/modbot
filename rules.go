@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/voloshink/dggchat"
+	"github.com/memelabs/dggchat"
 )
 
 // Prevent repeated posting of short messages.

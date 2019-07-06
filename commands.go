@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/voloshink/dggchat"
+	"github.com/memelabs/dggchat"
 )
 
 var (
