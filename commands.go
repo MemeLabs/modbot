@@ -444,16 +444,27 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	parts := strings.Split(m.Message, " ")
+	parts := strings.SplitN(m.Message, " ", 3)
 	if len(parts) < 2 {
 		return
 	}
 
 	doBan := parts[0] == "!drop"
 	username := parts[1]
-	reply, err := b.banATuser(username, doBan)
+	reason := ""
+
+	if doBan && len(parts) < 3 {
+		s.SendPrivateMessage(m.Sender.Nick,
+			fmt.Sprintf("%s - please provide a ban reason", m.Sender.Nick))
+		return
+	}
+	if doBan {
+		reason = parts[2]
+	}
+
+	reply, err := b.banATuser(username, reason, doBan)
 	if err != nil {
-		log.Println(fmt.Sprintf("drop error: '%s'", err.Error()))
+		log.Println(fmt.Sprintf("[##] drop error: '%s'", err.Error()))
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -227,7 +228,11 @@ func (b *bot) getATUserData(username string) (atData, error) {
 }
 
 // (un)ban AT user
-func (b *bot) banATuser(username string, ban bool) (string, error) {
+func (b *bot) banATuser(username string, reason string, ban bool) (string, error) {
+
+	if reason == "" {
+		reason = "no reason provided"
+	}
 
 	action := "unban"
 	if ban {
@@ -237,7 +242,7 @@ func (b *bot) banATuser(username string, ban bool) (string, error) {
 	path := fmt.Sprintf("https://api.angelthump.com/admin/v1/%s", action)
 
 	req, err := http.NewRequest(http.MethodPost, path, strings.NewReader(
-		fmt.Sprintf("username=%s", username)))
+		fmt.Sprintf("username=%s&reason=%s", username, url.QueryEscape(reason))))
 	if err != nil {
 		return "", err
 	}
