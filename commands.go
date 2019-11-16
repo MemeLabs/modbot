@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	mutex    sync.Mutex
-	commands = map[string]string{}
+	mutex         sync.RWMutex
+	commands      = map[string]string{}
+	bannedPhrases = map[string]string{}
 )
 
 func isMod(user dggchat.User) bool {
@@ -171,6 +172,76 @@ func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
 	s.SendMute(parts[1], -1)
 }
 
+func (b *bot) checkForBannedPhrase(m dggchat.Message, s *dggchat.Session) {
+	if isMod(m.Sender) {
+		return
+	}
+
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	for bannedPhrase, t := range bannedPhrases {
+		if t == "regex" {
+			r, err := regexp.Compile(bannedPhrase)
+			if err != nil {
+				log.Println("invalid regex mute:", bannedPhrase, err)
+				continue
+			}
+			if r.MatchString(m.Message) {
+				s.SendMute(m.Sender.Nick, -1)
+				return
+			}
+		} else {
+			if strings.Contains(m.Message, bannedPhrase) {
+				s.SendMute(m.Sender.Nick, -1)
+				return
+			}
+		}
+	}
+}
+
+func (b *bot) addBannedPhrase(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!mutephrase") {
+		return
+	}
+
+	parts := strings.SplitN(m.Message, " ", 2)
+	if len(parts) <= 1 {
+		return
+	}
+
+	isRegexNuke := parts[0] == "!mutephraseregex"
+	badstr := parts[1]
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if _, ok := bannedPhrases[badstr]; ok {
+		delete(bannedPhrases, badstr)
+		b.sendMessageDedupe("removed banned phrase", s)
+		return
+	}
+
+	_, err := regexp.Compile(badstr)
+	if isRegexNuke && err != nil {
+		b.sendMessageDedupe("regexp error", s)
+		return
+	}
+
+	if isRegexNuke {
+		bannedPhrases[badstr] = "regex"
+	} else {
+		bannedPhrases[badstr] = "string"
+	}
+
+	err = saveSettings(bannedPhrases, bannedPhrasesJSON)
+	if err != nil {
+		b.sendMessageDedupe(fmt.Sprintf("added new banned phrase %s", badstr), s)
+		return
+	}
+	b.sendMessageDedupe("failed to save banned phrase, check logs", s)
+}
+
 // !addcommand command response
 func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!addcommand") {
@@ -178,7 +249,7 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	// message itself can contain spaces
-	parts := strings.SplitN(m.Message, " ", -1)
+	parts := strings.Split(m.Message, " ")
 	if len(parts) < 3 {
 		return
 	}
@@ -187,6 +258,7 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	if !strings.HasPrefix(cmnd, "!") {
 		cmnd = "!" + cmnd
 	}
+
 	resp := strings.Join(parts[2:], " ")
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -196,8 +268,8 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 		b.sendMessageDedupe("deleted commands if it existed", s)
 	} else {
 		commands[cmnd] = resp
-		success := saveStaticCommands()
-		if success {
+		err := saveSettings(commands, commandJSON)
+		if err != nil {
 			b.sendMessageDedupe(fmt.Sprintf("added new command %s", cmnd), s)
 			return
 		}

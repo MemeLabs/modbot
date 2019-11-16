@@ -16,15 +16,16 @@ import (
 )
 
 var (
-	debuglogger  = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
-	authCookie   string
-	chatURL      string
-	backendURL   string
-	logFileName  string
-	commandJSON  string
-	atAdminToken string
-	logOnly      bool
-	logFile      *os.File
+	debuglogger       = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
+	authCookie        string
+	chatURL           string
+	backendURL        string
+	logFileName       string
+	commandJSON       string
+	bannedPhrasesJSON string
+	atAdminToken      string
+	logOnly           bool
+	logFile           *os.File
 )
 
 const (
@@ -39,6 +40,7 @@ func init() {
 	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
 	flag.StringVar(&commandJSON, "commands", "commands.json", "static commands file")
+	flag.StringVar(&bannedPhrasesJSON, "bannedPhrases", "banned_phrases.json", "static banned phrases file")
 	flag.StringVar(&atAdminToken, "attoken", "", "angelthump admin token (optional)")
 	flag.BoolVar(&logOnly, "logonly", false, "only 'reply' to logfile, not chat (for debugging)")
 	flag.Parse()
@@ -46,7 +48,8 @@ func init() {
 
 func main() {
 
-	loadStaticCommands()
+	loadSettings(commandJSON, &commands)
+	loadSettings(bannedPhrasesJSON, &bannedPhrases)
 
 	// TODO dggchat lib isn't flexible with the cookie name, workaround...
 	dgg, err := dggchat.New(";jwt=" + authCookie)
@@ -70,7 +73,10 @@ func main() {
 		b.checkAT,
 		b.embedLink,
 		b.dropAT,
+		b.addBannedPhrase,
+		b.checkForBannedPhrase,
 	)
+
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
 	dgg.AddMuteHandler(b.onMute)
@@ -158,39 +164,41 @@ func fileExists(name string) bool {
 	return true
 }
 
-func loadStaticCommands() {
+func loadSettings(location string, v interface{}) {
+	createFile(location)
 
-	if !fileExists(commandJSON) {
-		log.Printf("creating empty commands file %s\n", commandJSON)
-		os.Create(commandJSON)
-		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0755)
+	b, err := ioutil.ReadFile(location)
+	if err != nil {
+		panic(err)
+	}
+
+	err = json.Unmarshal(b, v)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func createFile(location string) {
+	if !fileExists(location) {
+		log.Printf("creating empty settings file file: %s\n", location)
+		os.Create(location)
+		err := ioutil.WriteFile(location, []byte("{}"), 0755)
 		if err != nil {
 			panic(err)
 		}
 	}
-
-	b, err := ioutil.ReadFile(commandJSON)
-	if err != nil {
-		panic(err)
-	}
-	var cmnd map[string]string
-	err = json.Unmarshal(b, &cmnd)
-	if err != nil {
-		panic(err)
-	}
-	commands = cmnd
 }
 
-func saveStaticCommands() bool {
-	s, err := json.MarshalIndent(commands, "", "\t")
+func saveSettings(v interface{}, location string) error {
+	s, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
-		log.Printf("failed marshaling commands, error: %v\n", err)
-		return false
+		log.Printf("failed marshaling interface, error: %v\n", err)
+		return err
 	}
-	err = ioutil.WriteFile(commandJSON, s, 0755)
+	err = ioutil.WriteFile(location, s, 0755)
 	if err != nil {
-		log.Printf("failed saving commands, error: %v\n", err)
-		return false
+		log.Printf("failed saving file, error: %v\n", err)
+		return err
 	}
-	return true
+	return nil
 }
