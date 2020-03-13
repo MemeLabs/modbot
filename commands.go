@@ -315,7 +315,10 @@ func (b *bot) printRecentChanges(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	out := fmt.Sprintf("Latest commits: `%s` `%s` `%s`", chngs[0], chngs[1], chngs[2])
+	out := "Latest commits:"
+	for _, chng := range chngs {
+		out += fmt.Sprintf(" %q", chng)
+	}
 	b.sendMessageDedupe(out, s)
 }
 
