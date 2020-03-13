@@ -23,7 +23,6 @@ func isMod(user dggchat.User) bool {
 
 // TODO
 func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
-
 	if logOnly {
 		log.Printf("[##] LOGONLY reply: %s\n", m)
 		return
@@ -38,7 +37,6 @@ func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
 }
 
 func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
-
 	for command, response := range commands {
 		if strings.HasPrefix(m.Message, command) {
 
@@ -62,7 +60,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 
 	isRegexNuke := parts[0] == "!nukeregex"
 	badstr := parts[1]
-	badregexp, err := regexp.Compile(badstr) //TODO when is error not nil??
+	badregexp, err := regexp.Compile(badstr) // TODO when is error not nil??
 	if isRegexNuke && err != nil {
 		b.sendMessageDedupe("regexp error", s)
 		return
@@ -304,8 +302,24 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
-func parseModifiers(s []string) (streamModifier, error) {
+// !changelog or !changes shows recent commit messages to chat-gui
+func (b *bot) printRecentChanges(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!change") {
+		return
+	}
 
+	chngs, err := getLatestChanges(chatPath, 3)
+	if err != nil {
+		log.Printf("%v\n", err)
+		b.sendMessageDedupe("error getting latest changes", s)
+		return
+	}
+
+	out := fmt.Sprintf("Latest commits: `%s` `%s` `%s`", chngs[0], chngs[1], chngs[2])
+	b.sendMessageDedupe(out, s)
+}
+
+func parseModifiers(s []string) (streamModifier, error) {
 	var sm streamModifier
 
 	for _, part := range s {
@@ -435,7 +449,6 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 		viewerCount, atd.Viewers, url)
 
 	b.sendMessageDedupe(output, s)
-
 }
 
 // !(un)drop atUser
@@ -476,7 +489,7 @@ func humanizeDuration(duration time.Duration) string {
 	days := int64(duration.Hours() / 24)
 	hours := int64(math.Mod(duration.Hours(), 24))
 	minutes := int64(math.Mod(duration.Minutes(), 60))
-	//seconds := int64(math.Mod(duration.Seconds(), 60))
+	// seconds := int64(math.Mod(duration.Seconds(), 60))
 
 	chunks := []struct {
 		singularName string
