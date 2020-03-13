@@ -24,7 +24,7 @@ func getLatestChanges(repo string, n int) ([]string, error) {
 			return nil, fmt.Errorf("failed to get next commit log: %v", err)
 		}
 
-		if strings.Contains(com.Message, "CHANGELOG") {
+		if strings.Contains(com.Message, "CHANGELOG:") {
 			msgs = append(msgs,
 				strings.TrimSpace(strings.Split(com.Message, "CHANGELOG:")[1]))
 		}
