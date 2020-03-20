@@ -18,6 +18,7 @@ import (
 var (
 	debuglogger  = log.New(os.Stdout, "[d] ", log.Ldate|log.Ltime|log.Lshortfile)
 	authCookie   string
+	chatPath     string
 	chatURL      string
 	backendURL   string
 	logFileName  string
@@ -35,6 +36,7 @@ const (
 
 func init() {
 	flag.StringVar(&authCookie, "cookie", "", "Cookie used for chat authentication and API access")
+	flag.StringVar(&chatPath, "path", "", "path to chat-gui")
 	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
 	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
@@ -45,7 +47,6 @@ func init() {
 }
 
 func main() {
-
 	loadStaticCommands()
 
 	// TODO dggchat lib isn't flexible with the cookie name, workaround...
@@ -66,6 +67,7 @@ func main() {
 		b.addCommand,
 		b.mute,
 		b.printTopStreams,
+		b.printRecentChanges,
 		b.modifyStream,
 		b.checkAT,
 		b.embedLink,
@@ -139,7 +141,6 @@ func main() {
 }
 
 func reOpenLog() *os.File {
-
 	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
 		panic(err)
@@ -159,7 +160,6 @@ func fileExists(name string) bool {
 }
 
 func loadStaticCommands() {
-
 	if !fileExists(commandJSON) {
 		log.Printf("creating empty commands file %s\n", commandJSON)
 		os.Create(commandJSON)
