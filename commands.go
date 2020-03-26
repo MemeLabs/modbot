@@ -322,6 +322,19 @@ func (b *bot) printRecentChanges(m dggchat.Message, s *dggchat.Session) {
 	b.sendMessageDedupe(out, s)
 }
 
+// !commands shows all available static commands
+func (b *bot) printCommands(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!commands") {
+		return
+	}
+
+	var out string
+	for _, cmd := range commands {
+		out += fmt.Sprintf("%s ", cmd)
+	}
+	b.sendMessageDedupe(out, s)
+}
+
 func parseModifiers(s []string) (streamModifier, error) {
 	var sm streamModifier
 
