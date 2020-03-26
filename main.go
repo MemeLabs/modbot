@@ -68,6 +68,7 @@ func main() {
 		b.mute,
 		b.printTopStreams,
 		b.printRecentChanges,
+		b.printCommands,
 		b.modifyStream,
 		b.checkAT,
 		b.embedLink,
