@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"syscall"
 	"time"
 
@@ -142,6 +143,13 @@ func main() {
 }
 
 func reOpenLog() *os.File {
+	dir, _ := path.Split(logFileName)
+	if !fileExists(dir) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			panic(err)
+		}
+	}
+
 	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
 		panic(err)
