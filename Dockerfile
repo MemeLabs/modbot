@@ -1,4 +1,4 @@
-FROM golang:alpine AS builder
+FROM golang:alpine
 
 ENV GO111MODULE=on
 
@@ -9,10 +9,9 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build .
+RUN go build -o modbot .
 WORKDIR /dist
+
 RUN cp /build/modbot .
 
-FROM scratch
-COPY --from=builder /dist/modbot /
-ENTRYPOINT ["/modbot"]
+CMD ["/dist/modbot"]
