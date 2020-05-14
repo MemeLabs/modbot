@@ -197,7 +197,7 @@ type atData struct {
 // interact with at backend
 func (b *bot) getATUserData(username string) (atData, error) {
 
-	path := fmt.Sprintf("https://api.angelthump.com/v1/%s", username)
+	path := fmt.Sprintf("https://api.angelthump.com/v2/streams/%s", username)
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return atData{}, err
@@ -239,7 +239,7 @@ func (b *bot) banATuser(username string, reason string, ban bool) (string, error
 		action = "ban"
 	}
 
-	path := fmt.Sprintf("https://api.angelthump.com/admin/v1/%s", action)
+	path := fmt.Sprintf("https://api.angelthump.com/v2/admin/%s", action)
 
 	req, err := http.NewRequest(http.MethodPost, path, strings.NewReader(
 		fmt.Sprintf("username=%s&reason=%s", username, url.QueryEscape(reason))))
@@ -261,5 +261,17 @@ func (b *bot) banATuser(username string, reason string, ban bool) (string, error
 		return "", err
 	}
 
-	return fmt.Sprintf("drop: %s", string(responseData)), nil
+	var erro struct {
+		Error    bool   `json:"error"`
+		ErrorMSG string `json:"errorMSG"`
+	}
+	if err := json.Unmarshal(responseData, resp); err != nil {
+		return "", err
+	}
+
+	if erro.Error {
+		return "", fmt.Errorf("failed to ban with: %q", erro.ErrorMSG)
+	}
+
+	return "success", nil
 }
