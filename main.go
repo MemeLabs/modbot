@@ -35,7 +35,7 @@ const (
 	ominousEmote = "BOGGED"
 )
 
-func init() {
+func main() {
 	flag.StringVar(&authCookie, "cookie", "", "Cookie used for chat authentication and API access")
 	flag.StringVar(&chatPath, "path", "", "path to chat-gui")
 	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
@@ -45,9 +45,7 @@ func init() {
 	flag.StringVar(&atAdminToken, "attoken", "", "angelthump admin token (optional)")
 	flag.BoolVar(&logOnly, "logonly", false, "only 'reply' to logfile, not chat (for debugging)")
 	flag.Parse()
-}
 
-func main() {
 	loadStaticCommands()
 
 	// TODO dggchat lib isn't flexible with the cookie name, workaround...
