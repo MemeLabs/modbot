@@ -504,13 +504,13 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 // https://strims.gg/m3u8/https://ams1.angelthump.com/hls/somuchforsubtlety/index.m3u8
 func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 	servers := map[string]string{
-		"nyc": "nyc",
-		"sfo": "sfo",
-		"sgp": "sgp",
-		"lon": "lon",
-		"fra": "fra",
-		"blr": "blr",
-		"ams": "ams",
+		"nyc": "nyc1",
+		"sfo": "sfo1",
+		"sgp": "sgp1",
+		"lon": "lon1",
+		"fra": "fra1",
+		"blr": "blr1",
+		"ams": "ams1",
 	}
 
 	if !strings.HasPrefix(m.Message, "!alt") {
@@ -525,7 +525,8 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 
 	username := parts[1]
 	server := parts[2]
-	if _, ok := servers[strings.ToLower(server)]; !ok {
+	srv, ok := servers[strings.ToLower(server)]
+	if !ok {
 		log.Printf("[##] invalid server: %s is not a valid Angelthump server", server)
 		b.sendMessageDedupe("not a valid Angelthump server", s)
 		return
@@ -546,7 +547,7 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	output := fmt.Sprintf("https://strims.gg/m3u8/https://%s.angelthump.com/hls/%s/index.m3u8", server, atd.Username)
+	output := fmt.Sprintf("https://strims.gg/m3u8/https://%s.angelthump.com/hls/%s/index.m3u8", srv, atd.Username)
 	b.sendMessageDedupe(output, s)
 }
 
