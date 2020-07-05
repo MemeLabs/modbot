@@ -504,13 +504,13 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 // https://strims.gg/m3u8/https://ams1.angelthump.com/hls/somuchforsubtlety/index.m3u8
 func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 	servers := map[string]string{
-		"nyc": "nyc",
-		"sfo": "sfo",
-		"sgp": "sgp",
-		"lon": "lon",
-		"fra": "fra",
-		"blr": "blr",
-		"ams": "ams",
+		"nyc": "nyc1",
+		"sfo": "sfo1",
+		"sgp": "sgp1",
+		"lon": "lon1",
+		"fra": "fra1",
+		"blr": "blr1",
+		"ams": "ams1",
 	}
 
 	if !strings.HasPrefix(m.Message, "!alt") {
