@@ -500,6 +500,56 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 	b.sendMessageDedupe(reply, s)
 }
 
+// provideAltAngelthumpLink expects a stream and server name, returning an alternate link for a stream
+// https://strims.gg/m3u8/https://ams1.angelthump.com/hls/somuchforsubtlety/index.m3u8
+func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
+	servers := map[string]string{
+		"nyc": "nyc",
+		"sfo": "sfo",
+		"sgp": "sgp",
+		"lon": "lon",
+		"fra": "fra",
+		"blr": "blr",
+		"ams": "ams",
+	}
+
+	if !strings.HasPrefix(m.Message, "!alt") {
+		return
+	}
+
+	// !alt f1tv nyc
+	parts := strings.Split(m.Message, " ")
+	if len(parts) != 3 {
+		return
+	}
+
+	username := parts[1]
+	server := parts[2]
+	if _, ok := servers[strings.ToLower(server)]; !ok {
+		log.Printf("[##] invalid server: %s is not a valid Angelthump server", server)
+		b.sendMessageDedupe("not a valid Angelthump server", s)
+		return
+	}
+
+	atd, err := b.getATUserData(username)
+	if err != nil {
+		log.Printf("[##] checkAT error1: '%s'\n",
+			err.Error())
+
+		// workaround... depends on content of error message
+		if strings.Contains(err.Error(), "404") {
+			log.Printf("[##] check: not found\n")
+			return
+		}
+
+		b.sendMessageDedupe("error getting api data", s)
+		return
+	}
+
+	output := fmt.Sprintf("https://strims.gg/m3u8/https://%s.angelthump.com/hls/%s/index.m3u8", server, atd.Username)
+	b.sendMessageDedupe(output, s)
+}
+
 // https://gist.github.com/harshavardhana/327e0577c4fed9211f65
 func humanizeDuration(duration time.Duration) string {
 	days := int64(duration.Hours() / 24)
