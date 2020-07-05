@@ -519,7 +519,14 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 
 	// !alt f1tv nyc
 	parts := strings.Split(m.Message, " ")
-	if len(parts) != 3 {
+	if len(parts) <= 2 {
+		failed := "must provide a stream and server: !alt psrngafk ["
+		for k := range servers {
+			failed += fmt.Sprintf(" %s ", k)
+		}
+		failed += "]"
+
+		b.sendMessageDedupe(failed, s)
 		return
 	}
 
