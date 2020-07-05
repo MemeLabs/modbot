@@ -72,6 +72,7 @@ func main() {
 		b.checkAT,
 		b.embedLink,
 		b.dropAT,
+		b.provideAltAngelthumpLink,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
