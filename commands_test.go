@@ -5,7 +5,6 @@ import (
 )
 
 func TestParseIdentifier(t *testing.T) {
-
 	linkIdentifierMap := map[string]string{
 		"https://www.youtube.com/watch?v=9wnNW4HyDtg&t=13s":            "youtube/9wnNW4HyDtg",
 		"https://www.youtube.com/embed/9wnNW4HyDtg":                    "youtube/9wnNW4HyDtg",
@@ -39,11 +38,9 @@ func TestParseIdentifier(t *testing.T) {
 			t.Errorf("Non-empty result failed sanity check: '%s'\n", result)
 		}
 	}
-
 }
 
 func TestIsValidIdentifier(t *testing.T) {
-
 	PassCases := []string{
 		"twitch/admin",
 		"middle/matches",
@@ -53,7 +50,7 @@ func TestIsValidIdentifier(t *testing.T) {
 		"twitch/",
 		"/test",
 		"youtube.com/test",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/b", //too long
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/b", // too long
 		"test middle/matches test",
 		"https://www.youtube.com/watch?v=9wnNW4HyDtg&t=13s",
 	}
@@ -72,7 +69,6 @@ func TestIsValidIdentifier(t *testing.T) {
 }
 
 func TestParseModifiers(t *testing.T) {
-
 	// correct modifiers
 	s1 := []string{"nsfw", "hidden"}
 	result, err := parseModifiers(s1)
@@ -87,5 +83,4 @@ func TestParseModifiers(t *testing.T) {
 		t.Error("Error in modifier s2")
 	}
 	// fmt.Println(err.Error())
-
 }

@@ -42,7 +42,6 @@ func isValidIdentifier(id string) bool {
 }
 
 func parseIdentifier(link string) string {
-
 	for regexp, path := range matchMap {
 		// FindStringSubmatch returns the full match and then whatever capture groups...
 		// We are interested in the first and (normally) only match after the full (very first) one.

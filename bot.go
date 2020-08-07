@@ -16,7 +16,6 @@ type bot struct {
 }
 
 func newBot(authCookie string, maxLogLines int) *bot {
-
 	if maxLogLines < 0 {
 		maxLogLines = 0
 	}
@@ -28,7 +27,6 @@ func newBot(authCookie string, maxLogLines int) *bot {
 		authCookie:  authCookie,
 	}
 	return &b
-
 }
 
 func (b *bot) addParser(p ...func(m dggchat.Message, s *dggchat.Session)) {
@@ -38,7 +36,6 @@ func (b *bot) addParser(p ...func(m dggchat.Message, s *dggchat.Session)) {
 }
 
 func (b *bot) onMessage(m dggchat.Message, s *dggchat.Session) {
-
 	// remember maxLogLines messages
 	if len(b.log) >= b.maxLogLines {
 		b.log = b.log[1:]
@@ -95,7 +92,6 @@ func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
 
 // return last n messsages for given user from log
 func (b *bot) getLastMessages(nick string, n int) []string {
-
 	output := []string{}
 	for i := len(b.log) - 1; i >= 0; i-- {
 

@@ -41,7 +41,6 @@ type errorResp struct {
 }
 
 func (b *bot) initHeaders(req *http.Request) *http.Request {
-
 	c := fmt.Sprintf("%s=%s", authCookieName, b.authCookie)
 	req.Header.Set("Cookie", c)
 	req.Header.Set("Content-Type", "application/json")
@@ -51,8 +50,7 @@ func (b *bot) initHeaders(req *http.Request) *http.Request {
 
 // Send rename request to backend.
 func (b *bot) renameUser(oldName string, newName string) error {
-
-	var jsonStr = []byte(fmt.Sprintf(`{"username":"%s"}`, newName))
+	jsonStr := []byte(fmt.Sprintf(`{"username":"%s"}`, newName))
 	path := fmt.Sprintf("%s/admin/profiles/%s/username", backendURL, oldName)
 	req, err := http.NewRequest("POST", path, bytes.NewBuffer(jsonStr))
 	if err != nil {
@@ -86,7 +84,6 @@ type streamModifier struct {
 // Modify stream attributes (nsfw/hidden/...)
 // identifier can be a stream_path (simple string) or "{service}/{channel}"
 func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) error {
-
 	jsonStr, err := json.Marshal(&modifier)
 	if err != nil {
 		return err
@@ -127,7 +124,6 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 
 // build common get request...
 func (b *bot) buildGetRequest(path string) (*http.Request, error) {
-
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", backendURL, path), nil)
 	if err != nil {
 		return nil, err
@@ -138,7 +134,6 @@ func (b *bot) buildGetRequest(path string) (*http.Request, error) {
 
 // get basic user info - to check if we are logged in and have correct rights
 func (b *bot) getProfileInfo() (userInfo, error) {
-
 	req, err := b.buildGetRequest("/profile")
 	if err != nil {
 		return userInfo{}, err
@@ -160,7 +155,6 @@ func (b *bot) getProfileInfo() (userInfo, error) {
 
 // Get list of current streams.
 func (b *bot) getStreamList() (streamData, error) {
-
 	// empty path (/api) holds stream data...
 	req, err := b.buildGetRequest("")
 	if err != nil {
@@ -196,7 +190,6 @@ type atData struct {
 
 // interact with at backend
 func (b *bot) getATUserData(username string) (atData, error) {
-
 	path := fmt.Sprintf("https://api.angelthump.com/v2/streams/%s", username)
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
@@ -229,7 +222,6 @@ func (b *bot) getATUserData(username string) (atData, error) {
 
 // (un)ban AT user
 func (b *bot) banATuser(username string, reason string, ban bool) (string, error) {
-
 	if reason == "" {
 		reason = "no reason provided"
 	}

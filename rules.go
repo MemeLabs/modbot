@@ -10,7 +10,6 @@ import (
 
 // Prevent repeated posting of short messages.
 func (b *bot) noShortMsgSpam(m dggchat.Message, s *dggchat.Session) {
-
 	// only proceed if the current message is "bad"
 	if len(m.Message) > 2 {
 		return
@@ -31,5 +30,4 @@ func (b *bot) noShortMsgSpam(m dggchat.Message, s *dggchat.Session) {
 		s.SendMute(m.Sender.Nick, -1)
 		s.SendMessage(fmt.Sprintf("%s - too many short messages", m.Sender.Nick))
 	}
-
 }
