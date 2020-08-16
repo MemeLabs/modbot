@@ -535,7 +535,11 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 	srv, ok := servers[strings.ToLower(server)]
 	if !ok {
 		log.Printf("[##] invalid server: %s is not a valid Angelthump server", server)
-		b.sendMessageDedupe("not a valid Angelthump server", s)
+		failed := "not a valid Angelthump server. Please pick from ["
+		for k := range servers {
+			failed += fmt.Sprintf(" %s ", k)
+		}
+		b.sendMessageDedupe(failed, s)
 		return
 	}
 
@@ -551,6 +555,12 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 		}
 
 		b.sendMessageDedupe("error getting api data", s)
+		return
+	}
+
+	if atd.Username == "" {
+		log.Printf("[##] unable to find %s's AT username: %+v", username, atd)
+		b.sendMessageDedupe("could not locate the streamer's AngelThump username", s)
 		return
 	}
 
