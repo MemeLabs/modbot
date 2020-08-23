@@ -302,39 +302,6 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
-// !changelog or !changes shows recent commit messages to chat-gui
-func (b *bot) printRecentChanges(m dggchat.Message, s *dggchat.Session) {
-	if !strings.HasPrefix(m.Message, "!change") {
-		return
-	}
-
-	chngs, err := getLatestChanges(chatPath, 3)
-	if err != nil {
-		log.Printf("%v\n", err)
-		b.sendMessageDedupe("error getting latest changes", s)
-		return
-	}
-
-	out := "Latest commits:"
-	for _, chng := range chngs {
-		out += fmt.Sprintf(" %q", chng)
-	}
-	b.sendMessageDedupe(out, s)
-}
-
-// !commands shows all available static commands
-func (b *bot) printCommands(m dggchat.Message, s *dggchat.Session) {
-	if !strings.HasPrefix(m.Message, "!commands") {
-		return
-	}
-
-	var out string
-	for _, cmd := range commands {
-		out += fmt.Sprintf("%s ", cmd)
-	}
-	b.sendMessageDedupe(out, s)
-}
-
 func parseModifiers(s []string) (streamModifier, error) {
 	var sm streamModifier
 
