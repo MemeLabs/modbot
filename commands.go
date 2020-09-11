@@ -468,7 +468,7 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 }
 
 // provideAltAngelthumpLink expects a stream and server name, returning an alternate link for a stream
-// https://strims.gg/m3u8/https://ams1.angelthump.com/hls/somuchforsubtlety/index.m3u8
+// https://strims.gg/m3u8/https://ams-haproxy.angelthump.com/hls/somuchforsubtlety/index.m3u8
 func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 	servers := map[string]string{
 		"nyc": "nyc-haproxy",
@@ -478,34 +478,31 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 		"fra": "fra-haproxy",
 		"blr": "blr-haproxy",
 		"ams": "ams-haproxy",
+		"tor": "tor-haproxy",
 	}
 
 	if !strings.HasPrefix(m.Message, "!alt") {
 		return
 	}
 
+	failed := "must provide a stream and server: `!alt psrngafk ["
+	for k := range servers {
+		failed += fmt.Sprintf(" %s ", k)
+	}
+	failed += "]`"
+
 	// !alt f1tv nyc
 	parts := strings.Split(m.Message, " ")
 	if len(parts) <= 2 {
-		failed := "must provide a stream and server: !alt psrngafk ["
-		for k := range servers {
-			failed += fmt.Sprintf(" %s ", k)
-		}
-		failed += "]"
-
 		b.sendMessageDedupe(failed, s)
 		return
 	}
 
 	username := parts[1]
-	server := parts[2]
+	server := strings.TrimSpace(parts[2])
 	srv, ok := servers[strings.ToLower(server)]
 	if !ok {
 		log.Printf("[##] invalid server: %s is not a valid Angelthump server", server)
-		failed := "not a valid Angelthump server. Please pick from ["
-		for k := range servers {
-			failed += fmt.Sprintf(" %s ", k)
-		}
 		b.sendMessageDedupe(failed, s)
 		return
 	}
