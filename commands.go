@@ -464,7 +464,8 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	b.sendMessageDedupe(reply, s)
+	//	b.sendMessageDedupe(reply, s)
+	s.SendPrivateMessage(m.Sender.Nick, reply)
 }
 
 // provideAltAngelthumpLink expects a stream and server name, returning an alternate link for a stream
