@@ -22,18 +22,20 @@ var (
 	ytRe3      = regexp.MustCompile(fmt.Sprintf("youtube\\.com/embed/%s", commonMatch))
 	facebookRe = regexp.MustCompile(fmt.Sprintf("facebook\\.com/.*?/videos/%s/?", commonMatch))
 	mixerRe    = regexp.MustCompile(fmt.Sprintf("mixer\\.com/(?:embed/player/)?%s$", commonMatch))
+	cccRe      = regexp.MustCompile(`media\.ccc\.de/v/([^#]+)`)
 
 	// these are the path mappings on strims
 	matchMap = map[*regexp.Regexp]string{
-		twitchVodRe: "twitch-vod",
-		twitchRe:    "twitch",
-		atRe:        "angelthump",
-		atRe2:       "angelthump",
-		ytRe1:       "youtube",
-		ytRe2:       "youtube",
-		ytRe3:       "youtube",
-		facebookRe:  "facebook",
-		mixerRe:     "mixer",
+		twitchVodRe: "twitch-vod/%s",
+		twitchRe:    "twitch/%s",
+		atRe:        "angelthump/%s",
+		atRe2:       "angelthump/%s",
+		ytRe1:       "youtube/%s",
+		ytRe2:       "youtube/%s",
+		ytRe3:       "youtube/%s",
+		facebookRe:  "facebook/%s",
+		mixerRe:     "mixer/%s",
+		cccRe:       "advanced/https://media.ccc.de/v/%s/oembed",
 	}
 )
 
@@ -47,7 +49,7 @@ func parseIdentifier(link string) string {
 		// We are interested in the first and (normally) only match after the full (very first) one.
 		// E.g. return value could be [twitch.tv/username, username] - we want the latter: "username".
 		if match := regexp.FindStringSubmatch(link); len(match) == 2 {
-			return path + "/" + match[1]
+			return fmt.Sprintf(path, match[1])
 		}
 	}
 
