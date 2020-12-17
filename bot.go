@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/memelabs/dggchat"
 )
@@ -91,8 +92,8 @@ func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
 }
 
 // return last n messsages for given user from log
-func (b *bot) getLastMessages(nick string, n int) []string {
-	output := []string{}
+func (b *bot) getLastMessages(nick string, n int) [][]string {
+	output := [][]string{}
 	for i := len(b.log) - 1; i >= 0; i-- {
 
 		if len(output) >= n {
@@ -101,7 +102,7 @@ func (b *bot) getLastMessages(nick string, n int) []string {
 
 		msg := b.log[i]
 		if msg.Sender.Nick == nick {
-			output = append(output, msg.Message)
+			output = append(output, []string{msg.Timestamp.Format(time.Kitchen), msg.Message})
 		}
 	}
 	return output
