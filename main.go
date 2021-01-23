@@ -65,6 +65,7 @@ func main() {
 		b.say,
 		b.addCommand,
 		b.mute,
+		b.unmute,
 		b.printTopStreams,
 		b.modifyStream,
 		b.checkAT,
