@@ -169,6 +169,18 @@ func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
 	s.SendMute(parts[1], -1)
 }
 
+// !unmute - unmute a chatter
+func (b *bot) unmute(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!unmute") {
+		return
+	}
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+	s.SendUnmute(parts[1])
+}
+
 // !addcommand command response
 func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!addcommand") {
