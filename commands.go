@@ -157,7 +157,7 @@ func (b *bot) say(m dggchat.Message, s *dggchat.Session) {
 	b.sendMessageDedupe(parts[1], s)
 }
 
-// !mute - TODO very basic, does not take time etc...
+// !mute - mute a chatter for a given time
 func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!mute") {
 		return
@@ -166,7 +166,17 @@ func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
 	if len(parts) < 2 {
 		return
 	}
-	s.SendMute(parts[1], -1)
+
+	var duration time.Duration = -1
+	if len(parts) >= 3 {
+		dur, err := time.ParseDuration(parts[2])
+		if err != nil {
+			log.Printf("failed to parse duration %q: %v. Using default time", parts[2], err)
+		} else {
+			duration = dur
+		}
+	}
+	s.SendMute(parts[1], duration)
 }
 
 // !unmute - unmute a chatter
