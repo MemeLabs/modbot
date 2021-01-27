@@ -72,6 +72,7 @@ func main() {
 		b.embedLink,
 		b.dropAT,
 		b.provideAltAngelthumpLink,
+		b.ban,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
@@ -120,7 +121,7 @@ func main() {
 		// handle logrotate request from daemon
 		case syscall.SIGHUP:
 			log.Println("[##] signal: handling SIGHUP")
-			err := logFile.Close()
+			err = logFile.Close()
 			if err != nil {
 				panic(err)
 			}

@@ -587,3 +587,25 @@ func humanizeDuration(duration time.Duration) string {
 
 	return strings.Join(parts, " ")
 }
+
+// !(un)ban -- ban a user
+func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
+	if !isMod(m.Sender) || (!strings.HasPrefix(m.Message, "!ban") && !strings.HasPrefix(m.Message, "!unban")) {
+		return
+	}
+
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+
+	if parts[0] == "!ban" {
+		reason := ""
+		if len(parts) == 3 {
+			reason = parts[2]
+		}
+		s.SendBan(parts[1], reason, 0, false)
+	} else if parts[0] == "!unban" {
+		s.SendUnban(parts[1])
+	}
+}
