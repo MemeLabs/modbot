@@ -442,16 +442,13 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	startTime, err := time.Parse(time.RFC3339Nano, atd.CreatedAt)
-	if err != nil {
-		log.Printf("[##] checkAT time: '%s'\n",
-			err.Error())
-		b.sendMessageDedupe("error converting api data", s)
-		return
-	}
 	output := fmt.Sprintf("%s is live for %s with %d rustlers and %d viewers at %s",
-		atd.Username, humanizeDuration(time.Since(startTime)),
-		viewerCount, atd.Viewers, url)
+		atd.Username, humanizeDuration(time.Since(atd.CreatedAt)),
+		viewerCount, atd.ViewerCount, url)
+
+	if atd.User.Nsfw {
+		output += " nsfw"
+	}
 
 	b.sendMessageDedupe(output, s)
 }

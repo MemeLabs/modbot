@@ -68,7 +68,7 @@ func (b *bot) renameUser(oldName string, newName string) error {
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Status code %d, %s", resp.StatusCode, body)
+		return fmt.Errorf("status code %d, %s", resp.StatusCode, body)
 	}
 	return nil
 }
@@ -177,15 +177,18 @@ func (b *bot) getStreamList() (streamData, error) {
 
 // at api data
 type atData struct {
-	Username          string `json:"username"`
-	Live              bool   `json:"live"`
-	Title             string `json:"title"`
-	Viewers           int    `json:"viewers"`
-	PasswordProtected bool   `json:"passwordProtected"`
-	Banned            bool   `json:"banned"`
-	Poster            string `json:"poster"`
-	Thumbnail         string `json:"thumbnail"`
-	CreatedAt         string `json:"created_at"`
+	Username    string `json:"username"`
+	ViewerCount int    `json:"viewer_count"`
+	User        struct {
+		ID              string `json:"id"`
+		Username        string `json:"username"`
+		Title           string `json:"title"`
+		Angel           bool   `json:"angel"`
+		Nsfw            bool   `json:"nsfw"`
+		Banned          bool   `json:"banned"`
+		PasswordProtect bool   `json:"password_protect"`
+	} `json:"user"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // interact with at backend
@@ -208,7 +211,7 @@ func (b *bot) getATUserData(username string) (atData, error) {
 	// don't check status code, the backend doesn't report it correctly.
 	// if user does not exist, content type is text/html.
 	if !strings.Contains(resp.Header.Get("content-type"), "application/json") {
-		return atData{}, errors.New("User not found - 404")
+		return atData{}, errors.New("user not found - 404")
 	}
 
 	var atd atData
