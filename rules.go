@@ -25,14 +25,9 @@ func (b *bot) noShortMsgSpam(m dggchat.Message, s *dggchat.Session) {
 	// check how many of the last messages were too short and they are within the
 	// past hour.
 	for _, msg := range lastmsgs {
-		tm, err := time.Parse(time.Kitchen, msg[0])
-		if err != nil {
-			continue
-		}
-
-		if len(msg[1]) <= 2 && now.Before(tm) {
+		if len(msg.Message) <= 2 && now.Before(msg.Timestamp) {
 			badmsgcount++
-			badmsgs = append(badmsgs, msg[1])
+			badmsgs = append(badmsgs, msg.Message)
 		}
 	}
 
