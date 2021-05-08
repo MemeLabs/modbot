@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memelabs/dggchat"
+	"github.com/MemeLabs/dggchat"
 )
 
 // Prevent repeated posting of short messages.

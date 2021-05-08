@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/memelabs/dggchat"
+	"github.com/MemeLabs/dggchat"
 )
 
 type bot struct {

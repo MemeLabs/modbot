@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/memelabs/dggchat"
+	"github.com/MemeLabs/dggchat"
 )
 
 var (
