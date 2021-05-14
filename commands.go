@@ -225,34 +225,6 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
-// !embed link
-func (b *bot) embedLink(m dggchat.Message, s *dggchat.Session) {
-	if !strings.HasPrefix(m.Message, "!embed") {
-		return
-	}
-
-	parts := strings.Split(m.Message, " ")
-	if len(parts) < 2 {
-		return
-	}
-	link := parts[1]
-	id := parseIdentifier(link)
-
-	// TODO cleanup... also this should be synced with chat-gui... (spoiler is a keyword too but mostly unused)
-	extra := ""
-	if strings.Contains(strings.ToLower(m.Message), "nsfw") {
-		extra = " [nsfw]"
-	}
-	if strings.Contains(strings.ToLower(m.Message), "nsfl") {
-		extra = " [nsfl]"
-	}
-
-	if id != "" {
-		embed := fmt.Sprintf("%s/%s%s", websiteURL, id, extra)
-		b.sendMessageDedupe(embed, s)
-	}
-}
-
 // TOOD clean up...
 func isCommunityStream(path string) bool {
 	// "/twitch/test" it not. "/memer" is.

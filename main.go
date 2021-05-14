@@ -69,7 +69,6 @@ func main() {
 		b.printTopStreams,
 		b.modifyStream,
 		b.checkAT,
-		b.embedLink,
 		b.dropAT,
 		b.provideAltAngelthumpLink,
 		b.ban,
