@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -459,6 +462,8 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 	s.SendPrivateMessage(m.Sender.Nick, reply)
 }
 
+var playlistURLPattern = regexp.MustCompile(`https://([\w-]+)\.angelthump\.com/hls/([^/]+)/index.m3u8`)
+
 // provideAltAngelthumpLink expects a stream and server name, returning an alternate link for a stream
 // https://strims.gg/m3u8/https://ams-haproxy.angelthump.com/hls/somuchforsubtlety/index.m3u8
 func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
@@ -520,7 +525,26 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	output := fmt.Sprintf("https://strims.gg/m3u8/https://%s.angelthump.com/hls/%s/index.m3u8", srv, atd.Username)
+	res, err := http.Get(fmt.Sprintf("https://vigor.angelthump.com/hls/%s.m3u8", atd.Username))
+	if err != nil {
+		log.Printf("[##] error loading playlist: %s", err)
+		b.sendMessageDedupe("could not locate the AngelThump stream", s)
+		return
+	}
+	playlist, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("[##] error loading playlist: %s", err)
+		b.sendMessageDedupe("could not locate the AngelThump stream", s)
+		return
+	}
+	playlistURL := playlistURLPattern.FindSubmatch(playlist)
+	if playlistURL == nil {
+		log.Printf("[##] error loading playlist: no url found")
+		b.sendMessageDedupe("could not locate the AngelThump stream", s)
+		return
+	}
+
+	output := fmt.Sprintf("https://strims.gg/m3u8/%s", bytes.Replace(playlistURL[0], playlistURL[1], []byte(srv), -1))
 	b.sendMessageDedupe(output, s)
 }
 
