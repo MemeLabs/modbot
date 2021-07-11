@@ -68,7 +68,15 @@ func (b *bot) renameUser(oldName string, newName string) error {
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("status code %d, %s", resp.StatusCode, body)
+		unmarshalled := map[string]interface{}{}
+		if err := json.Unmarshal(body, &unmarshalled); err != nil {
+			return fmt.Errorf("failed to unmarshal response: %v", err)
+		}
+		msg, ok := unmarshalled["message"].(string)
+		if !ok {
+			return fmt.Errorf("status code %d, %s", resp.StatusCode, body)
+		}
+		return fmt.Errorf("%s", msg)
 	}
 	return nil
 }
