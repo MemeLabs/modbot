@@ -135,9 +135,11 @@ func (b *bot) rename(m dggchat.Message, s *dggchat.Session) {
 	newName := parts[2]
 	err := b.renameUser(oldName, newName)
 	if err != nil {
-		log.Printf("[##] rename: '%s' to '%s' by %s failed with '%s'\n",
+		msg := fmt.Sprintf("'%s' to '%s' by %s failed with '%s'",
 			oldName, newName, m.Sender.Nick, err.Error())
+		log.Printf("[##] rename: %s\n", msg)
 
+		s.SendPrivateMessage(m.Sender.Nick, msg)
 		b.sendMessageDedupe("rename error, check logs", s)
 		return
 	}
