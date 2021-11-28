@@ -18,9 +18,9 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
       run: docker login https://ghcr.io -u ${username} -p ${password}
     - name: Build image
-      run: docker build . -t ghcr.io/memelabs/modbot:latest
+      run: docker build . -t ghcr.io/memelabs/modbot/modbot:latest
     - name: Publish image
-      run: docker push ghcr.io/memelabs/modbot:latest
+      run: docker push ghcr.io/memelabs/modbot/modbot:latest
     - name: ssh-deploy for modbot
       uses: appleboy/ssh-action@122f35dca5c7a216463c504741deb0de5b301953
       with:
