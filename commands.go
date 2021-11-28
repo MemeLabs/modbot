@@ -108,6 +108,14 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 	b.lastNukeVictims = append(b.lastNukeVictims, victimNames...)
 }
 
+func (b *bot) sudoku(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!sudoku") {
+		return
+	}
+	// TODO duration, -1 means server default
+	s.SendMute(m.Sender.Nick, -1)
+}
+
 // !aegis - undo (all) past nukes
 func (b *bot) aegis(m dggchat.Message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!aegis") || b.lastNukeVictims == nil {

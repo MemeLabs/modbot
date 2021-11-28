@@ -72,6 +72,7 @@ func main() {
 		b.dropAT,
 		b.provideAltAngelthumpLink,
 		b.ban,
+		b.sudoku,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
@@ -143,12 +144,12 @@ func main() {
 func reOpenLog() *os.File {
 	dir, _ := path.Split(logFileName)
 	if !fileExists(dir) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			panic(err)
 		}
 	}
 
-	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o755)
 	if err != nil {
 		panic(err)
 	}
@@ -170,7 +171,7 @@ func loadStaticCommands() {
 	if !fileExists(commandJSON) {
 		log.Printf("creating empty commands file %s\n", commandJSON)
 		os.Create(commandJSON)
-		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0755)
+		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0o755)
 		if err != nil {
 			panic(err)
 		}
@@ -194,7 +195,7 @@ func saveStaticCommands() bool {
 		log.Printf("failed marshaling commands, error: %v\n", err)
 		return false
 	}
-	err = ioutil.WriteFile(commandJSON, s, 0755)
+	err = ioutil.WriteFile(commandJSON, s, 0o755)
 	if err != nil {
 		log.Printf("failed saving commands, error: %v\n", err)
 		return false
