@@ -72,6 +72,7 @@ func main() {
 		b.dropAT,
 		b.provideAltAngelthumpLink,
 		b.ban,
+                b.sudoku,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)
