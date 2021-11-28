@@ -16,7 +16,7 @@ jobs:
       env:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      run: docker login ghcr.io -u ${username} -p ${password}
+      run: docker login https://ghcr.io -u ${username} -p ${password}
     - name: Build image
       run: docker build . -t ghcr.io/memelabs/modbot:latest
     - name: Publish image
