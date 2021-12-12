@@ -100,8 +100,8 @@ func (b *bot) setStreamAttributes(identifier string, modifier streamModifier) er
 	// backend does not like string-version of booleans,
 	// but we don't like structs with bools because omitempty
 	j := string(jsonStr[:])
-	j = strings.Replace(j, "\"true\"", "true", -1)
-	j = strings.Replace(j, "\"false\"", "false", -1)
+	j = strings.ReplaceAll(j, "\"true\"", "true")
+	j = strings.ReplaceAll(j, "\"false\"", "false")
 
 	path := fmt.Sprintf("%s/admin/streams/%s", backendURL, identifier)
 	req, err := http.NewRequest("POST", path, bytes.NewBuffer([]byte(j)))
@@ -185,8 +185,7 @@ func (b *bot) getStreamList() (streamData, error) {
 
 // at api data
 type atData struct {
-	Username    string `json:"username"`
-	ViewerCount int    `json:"viewer_count"`
+	ViewerCount int `json:"viewer_count"`
 	User        struct {
 		ID              string `json:"id"`
 		Username        string `json:"username"`
@@ -201,7 +200,7 @@ type atData struct {
 
 // interact with at backend
 func (b *bot) getATUserData(username string) (atData, error) {
-	path := fmt.Sprintf("https://api.angelthump.com/v2/streams/%s", username)
+	path := fmt.Sprintf("https://api.angelthump.com/v3/streams/?username=%s", strings.ToLower(username))
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return atData{}, err
@@ -222,13 +221,13 @@ func (b *bot) getATUserData(username string) (atData, error) {
 		return atData{}, errors.New("user not found - 404")
 	}
 
-	var atd atData
-	err = json.NewDecoder(resp.Body).Decode(&atd)
-	if err != nil {
+	var atds []atData
+	err = json.NewDecoder(resp.Body).Decode(&atds)
+	if err != nil || len(atds) == 0 {
 		return atData{}, err
 	}
 
-	return atd, nil
+	return atds[0], nil
 }
 
 // (un)ban AT user

@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
+	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math"
-	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -211,7 +209,7 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	// message itself can contain spaces
-	parts := strings.SplitN(m.Message, " ", -1)
+	parts := strings.Split(m.Message, " ")
 	if len(parts) < 3 {
 		return
 	}
@@ -428,7 +426,7 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	output := fmt.Sprintf("%s is live for %s with %d rustlers and %d viewers at %s",
-		atd.Username, humanizeDuration(time.Since(atd.CreatedAt)),
+		atd.User.Username, humanizeDuration(time.Since(atd.CreatedAt)),
 		viewerCount, atd.ViewerCount, url)
 
 	if atd.User.Nsfw {
@@ -529,32 +527,15 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	if atd.Username == "" {
+	if atd.User.Username == "" {
 		log.Printf("[##] unable to find %s's AT username: %+v", username, atd)
 		b.sendMessageDedupe("could not locate the streamer's AngelThump username", s)
 		return
 	}
 
-	res, err := http.Get(fmt.Sprintf("https://vigor.angelthump.com/hls/%s.m3u8", atd.Username))
-	if err != nil {
-		log.Printf("[##] error loading playlist: %s", err)
-		b.sendMessageDedupe("could not locate the AngelThump stream", s)
-		return
-	}
-	playlist, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Printf("[##] error loading playlist: %s", err)
-		b.sendMessageDedupe("could not locate the AngelThump stream", s)
-		return
-	}
-	playlistURL := playlistURLPattern.FindSubmatch(playlist)
-	if playlistURL == nil {
-		log.Printf("[##] error loading playlist: no url found")
-		b.sendMessageDedupe("could not locate the AngelThump stream", s)
-		return
-	}
-
-	output := fmt.Sprintf("https://strims.gg/m3u8/%s", bytes.Replace(playlistURL[0], playlistURL[1], []byte(srv), -1))
+	token := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s%s", atd.CreatedAt.Format(time.RFC3339Nano), strings.ToLower(atd.User.Username))))
+	m3u8 := fmt.Sprintf("https://%s.angelthump.com/hls/%s_%s/index.m3u8", srv, token, strings.ToLower(atd.User.Username))
+	output := fmt.Sprintf("https://strims.gg/m3u8/%s", m3u8)
 	b.sendMessageDedupe(output, s)
 }
 
