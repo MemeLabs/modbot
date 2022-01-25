@@ -533,7 +533,7 @@ func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	token := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s%s", atd.CreatedAt.Format(time.RFC3339Nano), strings.ToLower(atd.User.Username))))
+	token := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s%s", atd.UpdatedAt.Format(time.RFC3339Nano), strings.ToLower(atd.User.Username))))
 	m3u8 := fmt.Sprintf("https://%s.angelthump.com/hls/%s_%s/index.m3u8", srv, token, strings.ToLower(atd.User.Username))
 	output := fmt.Sprintf("https://strims.gg/m3u8/%s", m3u8)
 	b.sendMessageDedupe(output, s)

@@ -196,6 +196,7 @@ type atData struct {
 		PasswordProtect bool   `json:"password_protect"`
 	} `json:"user"`
 	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // interact with at backend
