@@ -73,6 +73,7 @@ func main() {
 		b.provideAltAngelthumpLink,
 		b.ban,
 		b.sudoku,
+		b.frenchToastAlert,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)

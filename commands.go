@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -112,6 +115,31 @@ func (b *bot) sudoku(m dggchat.Message, s *dggchat.Session) {
 	}
 	// TODO duration, -1 means server default
 	s.SendMute(m.Sender.Nick, -1)
+}
+
+func (b *bot) frenchToastAlert(m dggchat.Message, s *dggchat.Session) {
+	type ftlXML struct {
+		XMLName xml.Name `xml:"frenchtoast"`
+		Status  string   `xml:"status"`
+	}
+	if !strings.HasPrefix(m.Message, "!frenchToastAlert") {
+		return
+	}
+	//get frenchToastAlert XML
+	resp, err := http.Get("https://www.universalhub.com/toast.xml")
+	if err != nil {
+		return
+	}
+	//Parse Alert
+	if resp.StatusCode != 200 {
+		b.sendMessageDedupe("Error reaching French Toast Alert", s)
+		return
+	}
+	byteValue, _ := ioutil.ReadAll(resp.Body)
+	var f ftlXML
+	xml.Unmarshal(byteValue, &f)
+	//Bot says Alert
+	b.sendMessageDedupe("Current FT Level is "+f.Status, s)
 }
 
 // !aegis - undo (all) past nukes
