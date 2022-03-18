@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log"
 	"math"
@@ -468,75 +467,6 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 
 	//	b.sendMessageDedupe(reply, s)
 	s.SendPrivateMessage(m.Sender.Nick, reply)
-}
-
-var playlistURLPattern = regexp.MustCompile(`https://([\w-]+)\.angelthump\.com/hls/([^/]+)/index.m3u8`)
-
-// provideAltAngelthumpLink expects a stream and server name, returning an alternate link for a stream
-// https://strims.gg/m3u8/https://ams-haproxy.angelthump.com/hls/somuchforsubtlety/index.m3u8
-func (b *bot) provideAltAngelthumpLink(m dggchat.Message, s *dggchat.Session) {
-	servers := map[string]string{
-		"nyc": "nyc-haproxy",
-		"sfo": "sfo-haproxy",
-		"sgp": "sgp-haproxy",
-		"lon": "lon-haproxy",
-		"fra": "fra-haproxy",
-		"blr": "blr-haproxy",
-		"ams": "ams-haproxy",
-		"tor": "tor-haproxy",
-	}
-
-	if !strings.HasPrefix(m.Message, "!alt") {
-		return
-	}
-
-	failed := "must provide a stream and server: `!alt psrngafk ["
-	for k := range servers {
-		failed += fmt.Sprintf(" %s ", k)
-	}
-	failed += "]`"
-
-	// !alt f1tv nyc
-	parts := strings.Split(m.Message, " ")
-	if len(parts) <= 2 {
-		b.sendMessageDedupe(failed, s)
-		return
-	}
-
-	username := parts[1]
-	server := strings.TrimSpace(parts[2])
-	srv, ok := servers[strings.ToLower(server)]
-	if !ok {
-		log.Printf("[##] invalid server: %s is not a valid Angelthump server", server)
-		b.sendMessageDedupe(failed, s)
-		return
-	}
-
-	atd, err := b.getATUserData(username)
-	if err != nil {
-		log.Printf("[##] checkAT error1: '%s'\n",
-			err.Error())
-
-		// workaround... depends on content of error message
-		if strings.Contains(err.Error(), "404") {
-			log.Printf("[##] check: not found\n")
-			return
-		}
-
-		b.sendMessageDedupe("error getting api data", s)
-		return
-	}
-
-	if atd.User.Username == "" {
-		log.Printf("[##] unable to find %s's AT username: %+v", username, atd)
-		b.sendMessageDedupe("could not locate the streamer's AngelThump username", s)
-		return
-	}
-
-	token := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s%s", atd.UpdatedAt.Format(time.RFC3339Nano), strings.ToLower(atd.User.Username))))
-	m3u8 := fmt.Sprintf("https://%s.angelthump.com/hls/%s_%s/index.m3u8", srv, token, strings.ToLower(atd.User.Username))
-	output := fmt.Sprintf("https://strims.gg/m3u8/%s", m3u8)
-	b.sendMessageDedupe(output, s)
 }
 
 // https://gist.github.com/harshavardhana/327e0577c4fed9211f65
