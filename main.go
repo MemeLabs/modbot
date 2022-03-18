@@ -70,7 +70,6 @@ func main() {
 		b.modifyStream,
 		b.checkAT,
 		b.dropAT,
-		b.provideAltAngelthumpLink,
 		b.ban,
 		b.sudoku,
 	)
