@@ -242,7 +242,7 @@ func (b *bot) banATuser(username string, reason string, ban bool) (string, error
 		action = "ban"
 	}
 
-	path := fmt.Sprintf("https://api.angelthump.com/v3/admin/%s", action)
+	path := fmt.Sprintf("https://streams.angelthump.com/v3/admin/%s", action)
 
 	req, err := http.NewRequest(http.MethodPost, path, strings.NewReader(
 		fmt.Sprintf("username=%s&reason=%s", username, url.QueryEscape(reason))))
