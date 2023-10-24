@@ -72,6 +72,7 @@ func main() {
 		b.dropAT,
 		b.ban,
 		b.sudoku,
+		b.roll,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)

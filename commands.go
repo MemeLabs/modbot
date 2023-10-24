@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -522,4 +524,36 @@ func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
 	} else if parts[0] == "!unban" {
 		s.SendUnban(parts[1])
 	}
+}
+
+// !roll sides [count] - roll dice
+func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!roll") {
+		return
+	}
+
+	parts := strings.Split(m.Message, " ")
+	if len(parts) < 2 {
+		return
+	}
+
+	sides, _ := strconv.ParseUint(parts[1], 10, 64)
+	if sides == 0 {
+		return
+	}
+
+	count := uint64(1)
+	if len(parts) > 2 {
+		c, _ := strconv.ParseUint(parts[2], 10, 64)
+		if c != 0 {
+			count = c
+		}
+	}
+
+	if math.MaxInt64/count <= sides {
+		return
+	}
+
+	res := rand.Int63n(int64(sides * count))
+	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, res), s)
 }
