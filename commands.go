@@ -532,13 +532,13 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	parts := strings.Split(m.Message, " ")
+	parts := strings.Split(strings.Replace(m.Message, "d", " ", 1), " ")
 	if len(parts) < 2 {
 		return
 	}
 
 	sides, _ := strconv.ParseUint(parts[1], 10, 64)
-	if sides == 0 {
+	if sides < 2 {
 		return
 	}
 
@@ -554,6 +554,6 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	res := rand.Int63n(int64(sides * count))
+	res := rand.Int63n(int64((sides-1)*count)) + int64(count)
 	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, res), s)
 }
