@@ -558,10 +558,14 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 		}
 	}
 
-	if math.MaxInt64/count <= sides {
+	if math.MaxInt64/count <= sides || count > 100 {
 		return
 	}
 
-	res := rand.Int63n(int64((sides-1)*count)) + int64(count)
-	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, res), s)
+	var sum int64
+	for i := uint64(0); i < count; i++ {
+		sum += rand.Int63n(int64(sides)) + 1
+	}
+
+	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, sum), s)
 }
