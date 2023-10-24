@@ -532,19 +532,27 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	parts := strings.Split(strings.Replace(m.Message, "d", " ", 1), " ")
+	parts := strings.Split(m.Message, " ")
 	if len(parts) < 2 {
 		return
 	}
 
-	sides, _ := strconv.ParseUint(parts[1], 10, 64)
+	args := parts[1:]
+
+	// parse XdY
+	if strings.Contains(parts[1], "d") {
+		parts := strings.Split(parts[1], "d")
+		args = []string{parts[1], parts[0]}
+	}
+
+	sides, _ := strconv.ParseUint(args[0], 10, 64)
 	if sides < 2 {
 		return
 	}
 
 	count := uint64(1)
-	if len(parts) > 2 {
-		c, _ := strconv.ParseUint(parts[2], 10, 64)
+	if len(args) > 1 {
+		c, _ := strconv.ParseUint(args[1], 10, 64)
 		if c != 0 {
 			count = c
 		}
