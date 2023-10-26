@@ -590,9 +590,5 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 	}
 	
 	sum += modifier
-	if modifier > 0 {
-		b.sendMessageDedupe(fmt.Sprintf("%s rolled %d in %s: (%s) + %d", m.Sender.Nick, sum, parts[1], joinNumbers(tracker), modifier), s)
-	} else {
-		b.sendMessageDedupe(fmt.Sprintf("%s rolled %d in %s: (%s)", m.Sender.Nick, sum, parts[1], joinNumbers(tracker)), s)
-	}
+	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, sum), s)
 }
