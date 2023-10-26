@@ -526,6 +526,16 @@ func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
+func joinNumbers(numbers []string) string {
+	if len(numbers) > 5 {
+		numbers = numbers[:5]
+		numbers = append(numbers, "...") 
+	}
+
+	result := strings.Join(numbers, ", ")
+	return result
+}
+
 // !roll sides [count] - roll dice
 func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!roll") {
@@ -538,10 +548,16 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	args := parts[1:]
+	var modifier int64 = 0
 
 	// parse XdY
 	if strings.Contains(parts[1], "d") {
 		parts := strings.Split(parts[1], "d")
+		if strings.Contains(parts[1], "+") {
+			subparts := strings.Split(parts[1], "+")
+			modifier, _ = strconv.ParseInt(subparts[1], 10, 64)
+			parts[1] = subparts[0]
+		}
 		args = []string{parts[1], parts[0]}
 	}
 
@@ -563,9 +579,20 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 	}
 
 	var sum int64
-	for i := uint64(0); i < count; i++ {
-		sum += rand.Int63n(int64(sides)) + 1
-	}
+	var tracker []string
 
-	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, sum), s)
+	for i := uint64(0); i < count; i++ {
+		var value = rand.Int63n(int64(sides)) + 1
+		sum += value
+		if i <= 5 {
+			tracker = append(tracker, fmt.Sprintf("%d", value))
+		}
+	}
+	
+	sum += modifier
+	if modifier > 0 {
+		b.sendMessageDedupe(fmt.Sprintf("%s rolled %d in %s: (%s) + %d", m.Sender.Nick, sum, parts[1], joinNumbers(tracker), modifier), s)
+	} else {
+		b.sendMessageDedupe(fmt.Sprintf("%s rolled %d in %s: (%s)", m.Sender.Nick, sum, parts[1], joinNumbers(tracker)), s)
+	}
 }
