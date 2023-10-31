@@ -526,14 +526,41 @@ func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
-func joinNumbers(numbers []string) string {
-	if len(numbers) > 5 {
-		numbers = numbers[:5]
-		numbers = append(numbers, "...") 
+func Compute(input string) (int, error) {
+
+	// Define a regular expression to extract dice rolling information
+	regexPattern := `^!roll\s+(\d+)d(\d+)\s*([+\-]\s*\d+)?(.*?)$`
+	regex := regexp.MustCompile(regexPattern)
+
+	// Match the regular expression against the input string
+	matches := regex.FindStringSubmatch(input)
+
+	if matches == nil {
+		return 0, fmt.Errorf("Invalid input format: %s", input)
 	}
 
-	result := strings.Join(numbers, ", ")
-	return result
+	// Extract matched values
+	numDice, _ := strconv.Atoi(matches[1])
+	numSides, _ := strconv.Atoi(matches[2])
+	modifierStr := matches[3]
+
+	if math.MaxInt64/numDice <= numSides || numDice > 100 {
+		return 0, fmt.Errorf("Sides or count too large")
+	}
+
+	// Roll the dice
+	result := 0
+	for i := 0; i < numDice; i++ {
+		result += rand.Intn(numSides) + 1
+	}
+
+	// Apply the modifier if present
+	if modifierStr != "" {
+		modifier, _ := strconv.Atoi(modifierStr)
+		result += modifier
+	}
+
+	return result, nil
 }
 
 // !roll sides [count] - roll dice
@@ -547,48 +574,7 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	args := parts[1:]
-	var modifier int64 = 0
+	var sum, _ = Compute(m.Message)
 
-	// parse XdY
-	if strings.Contains(parts[1], "d") {
-		parts := strings.Split(parts[1], "d")
-		if strings.Contains(parts[1], "+") {
-			subparts := strings.Split(parts[1], "+")
-			modifier, _ = strconv.ParseInt(subparts[1], 10, 64)
-			parts[1] = subparts[0]
-		}
-		args = []string{parts[1], parts[0]}
-	}
-
-	sides, _ := strconv.ParseUint(args[0], 10, 64)
-	if sides < 2 {
-		return
-	}
-
-	count := uint64(1)
-	if len(args) > 1 {
-		c, _ := strconv.ParseUint(args[1], 10, 64)
-		if c != 0 {
-			count = c
-		}
-	}
-
-	if math.MaxInt64/count <= sides || count > 100 {
-		return
-	}
-
-	var sum int64
-	var tracker []string
-
-	for i := uint64(0); i < count; i++ {
-		var value = rand.Int63n(int64(sides)) + 1
-		sum += value
-		if i <= 5 {
-			tracker = append(tracker, fmt.Sprintf("%d", value))
-		}
-	}
-	
-	sum += modifier
 	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, sum), s)
 }
