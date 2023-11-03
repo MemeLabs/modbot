@@ -526,7 +526,7 @@ func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
-func Compute(input string) (int, error) {
+func compute(input string) (int, error) {
 
 	// Define a regular expression to extract dice rolling information
 	regexPattern := `^!roll\s+(\d+)d(\d+)\s*([+\-]\s*\d+)?(.*?)$`
