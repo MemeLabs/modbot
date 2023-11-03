@@ -23,7 +23,17 @@ func TestParseModifiers(t *testing.T) {
 }
 
 func TestCompute(t *testing.T) {
-	testInputs := [9]string{"!roll 2d2+100 foo biz baz", "!roll 2d2 + 100", "!roll 2d2 +100", "!roll 2d2+ 100", "!roll 2d2-100", "!roll 2d2 - 100",  "!roll 2d2 -100", "!roll 2d2- 100", "!roll 2d2- 100 foo biz baz", "!roll 23904823904823904823490d20 +1"}
+	testInputs := [10]string{
+		"!roll 2d2+100 foo biz baz",
+		"!roll 2d2 + 100",
+		"!roll 2d2 +100",
+		"!roll 2d2+ 100",
+		"!roll 2d2-100",
+		"!roll 2d2 - 100",
+		"!roll 2d2 -100",
+		"!roll 2d2- 100",
+		"!roll 2d2- 100 foo biz baz",
+		"!roll 23904823904823904823490d20 +1"}
 
 	for _, input := range testInputs {
 		result, err := compute(input)
