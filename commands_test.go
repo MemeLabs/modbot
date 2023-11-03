@@ -26,7 +26,7 @@ func TestCompute(t *testing.T) {
 	testInputs := [9]string{"!roll 2d2+100 foo biz baz", "!roll 2d2 + 100", "!roll 2d2 +100", "!roll 2d2+ 100", "!roll 2d2-100", "!roll 2d2 - 100",  "!roll 2d2 -100", "!roll 2d2- 100", "!roll 2d2- 100 foo biz baz", "!roll 23904823904823904823490d20 +1"}
 
 	for _, input := range testInputs {
-		result, err := Compute(input)
+		result, err := compute(input)
 		errorMessage := fmt.Sprintf("%v", err)
 		if err != nil {
 			if errorMessage != "Sides or count too large" {
