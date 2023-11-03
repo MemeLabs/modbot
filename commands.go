@@ -574,7 +574,7 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	var sum, _ = Compute(m.Message)
+	var sum, _ = compute(m.Message)
 
 	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, sum), s)
 }
