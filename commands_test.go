@@ -37,10 +37,10 @@ func TestComputeRoll(t *testing.T) {
 		"!roll 2d20"}
 
 	for _, input := range testInputs {
-		result, err := compute(input)
+		result, err := computeRoll(input)
 		errorMessage := fmt.Sprintf("%v", err)
 		if err != nil {
-			if errorMessage != "Sides or count too large" {
+			if errorMessage != "Sides, count or modifier too large" {
 				t.Error(fmt.Sprintf("Error: %v\n %d", err, result))
 			}
 		}
