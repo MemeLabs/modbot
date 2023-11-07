@@ -550,7 +550,13 @@ func computeRoll(input string) (int, error) {
 		modifier, _ = strconv.Atoi(modifierStr)
 	}
 
-	if math.MaxInt64/numDice <= numSides || numDice > 100 || modifier > math.MaxInt64 {
+	if numSides <= 0 || numDice <= 0 || modifier > math.MaxInt64 {
+		return 0, fmt.Errorf("Sides, count or modifier too large")
+	}
+
+	if math.MaxInt64/numSides < numDice ||
+		(modifier > 0 && math.MaxInt64-numSides*numDice < modifier) ||
+		(modifier < 0 && math.MinInt64-numSides*numDice > modifier) {
 		return 0, fmt.Errorf("Sides, count or modifier too large")
 	}
 
