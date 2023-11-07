@@ -22,7 +22,7 @@ func TestParseModifiers(t *testing.T) {
 	// fmt.Println(err.Error())
 }
 
-func TestCompute(t *testing.T) {
+func TestComputeRoll(t *testing.T) {
 	testInputs := [11]string{
 		"!roll 2d2+100 foo biz baz",
 		"!roll 2d2 + 100",
