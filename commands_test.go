@@ -23,7 +23,7 @@ func TestParseModifiers(t *testing.T) {
 }
 
 func TestComputeRoll(t *testing.T) {
-	testInputs := [11]string{
+	testInputs := []string{
 		"!roll 2d2+100 foo biz baz",
 		"!roll 2d2 + 100",
 		"!roll 2d2 +100",
@@ -34,7 +34,9 @@ func TestComputeRoll(t *testing.T) {
 		"!roll 2d2- 100",
 		"!roll 2d2- 100 foo biz baz",
 		"!roll 23904823904823904823490d20 +1",
-		"!roll 2d20"}
+		"!roll 2d20",
+		"!roll 20",
+		"!roll 20+10"}
 
 	for _, input := range testInputs {
 		result, err := computeRoll(input)

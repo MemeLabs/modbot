@@ -529,7 +529,7 @@ func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
 func computeRoll(input string) (int, error) {
 
 	// Define a regular expression to extract dice rolling information
-	regexPattern := `^!rolls?\s+(\d+)d(\d+)\s*([+\-]\s*\d+)?(.*?)$`
+	regexPattern := `^!rolls?\s+(\d+)(?:d(\d+))?\s*([+\-]\s*\d+)?`
 	regex := regexp.MustCompile(regexPattern)
 
 	// Match the regular expression against the input string
@@ -542,13 +542,14 @@ func computeRoll(input string) (int, error) {
 	// Extract matched values
 	numDice, _ := strconv.Atoi(matches[1])
 	numSides, _ := strconv.Atoi(matches[2])
-	modifierStr := matches[3]
-	checkMod := modifierStr != ""
 
-	var modifier int
-	if checkMod {
-		modifier, _ = strconv.Atoi(modifierStr)
+	if matches[2] == "" {
+		numSides = numDice
+		numDice = 1
 	}
+
+	modifier, _ := strconv.Atoi(matches[3])
+	checkMod := modifier != 0
 
 	if numSides <= 0 || numDice <= 0 || modifier > math.MaxInt64 {
 		return 0, fmt.Errorf("Sides, count or modifier too large")
