@@ -557,7 +557,7 @@ func computeRoll(input string) (int, error) {
 
 	if math.MaxInt64/numSides < numDice ||
 		(modifier > 0 && math.MaxInt64-numSides*numDice < modifier) ||
-		(modifier < 0 && math.MinInt64-numSides*numDice > modifier) {
+		(modifier < 0 && math.MinInt64+numSides*numDice > modifier) {
 		return 0, fmt.Errorf("Sides, count or modifier too large")
 	}
 
