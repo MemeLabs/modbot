@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -536,7 +537,7 @@ func computeRoll(input string) (int, error) {
 	matches := regex.FindStringSubmatch(input)
 
 	if matches == nil {
-		return 0, fmt.Errorf("Invalid input format: %s", input)
+		return 0, fmt.Errorf("invalid input format: %s", input)
 	}
 
 	// Extract matched values
@@ -551,14 +552,14 @@ func computeRoll(input string) (int, error) {
 	modifier, _ := strconv.Atoi(matches[3])
 	checkMod := modifier != 0
 
-	if numSides <= 0 || numDice <= 0 || modifier > math.MaxInt64 {
-		return 0, fmt.Errorf("Sides, count or modifier too large")
+	if numSides <= 0 || numDice <= 0 || numDice > 1000 {
+		return 0, errors.New("sides, count or modifier too large")
 	}
 
 	if math.MaxInt64/numSides < numDice ||
 		(modifier > 0 && math.MaxInt64-numSides*numDice < modifier) ||
 		(modifier < 0 && math.MinInt64+numSides*numDice > modifier) {
-		return 0, fmt.Errorf("Sides, count or modifier too large")
+		return 0, errors.New("sides, count or modifier too large")
 	}
 
 	// Roll the dice
