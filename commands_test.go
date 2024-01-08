@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -23,29 +24,32 @@ func TestParseModifiers(t *testing.T) {
 }
 
 func TestComputeRoll(t *testing.T) {
-	testInputs := []string{
-		"!roll 2d2+100 foo biz baz",
-		"!roll 2d2 + 100",
-		"!roll 2d2 +100",
-		"!roll 2d2+ 100",
-		"!roll 2d2-100",
-		"!roll 2d2 - 100",
-		"!roll 2d2 -100",
-		"!roll 2d2- 100",
-		"!roll 2d2- 100 foo biz baz",
-		"!roll 23904823904823904823490d20 +1",
-		"!roll 2d20",
-		"!roll 20",
-		"!roll 20+10"}
-
-	for _, input := range testInputs {
-		result, err := computeRoll(input)
-		errorMessage := fmt.Sprintf("%v", err)
-		if err != nil {
-			if errorMessage != "Sides, count or modifier too large" {
-				t.Error(fmt.Sprintf("Error: %v\n %d", err, result))
-			}
-		}
+	testInputs := []struct {
+		input string
+		err   error
+	}{
+		{input: "!roll 2d2+100 foo biz baz"},
+		{input: "!roll 2d2 + 100"},
+		{input: "!roll 2d2 +100"},
+		{input: "!roll 2d2+ 100"},
+		{input: "!roll 2d2-100"},
+		{input: "!roll 2d2 - 100"},
+		{input: "!roll 2d2 -100"},
+		{input: "!roll 2d2- 100"},
+		{input: "!roll 2d2- 100 foo biz baz"},
+		{input: "!roll 2d20"},
+		{input: "!roll 20"},
+		{input: "!roll 20+10"},
+		{input: "!roll 1d9223372036854775807"},
+		{input: "!roll 1d9223372036854775807+1", err: errResultRangeBounds},
+		{input: "!roll 9223372036854775807d1", err: errInputBounds},
 	}
 
+	for _, c := range testInputs {
+		_, err := computeRoll(c.input)
+		if !errors.Is(err, c.err) {
+			fmt.Printf(`"%s": unexpected error %s\n`, c.input, err)
+			t.FailNow()
+		}
+	}
 }

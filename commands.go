@@ -527,6 +527,10 @@ func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
+var errInputFormat = errors.New("invalid input format")
+var errInputBounds = errors.New("input out of bounds")
+var errResultRangeBounds = errors.New("result range out of bounds")
+
 func computeRoll(input string) (int, error) {
 
 	// Define a regular expression to extract dice rolling information
@@ -537,7 +541,7 @@ func computeRoll(input string) (int, error) {
 	matches := regex.FindStringSubmatch(input)
 
 	if matches == nil {
-		return 0, fmt.Errorf("invalid input format: %s", input)
+		return 0, fmt.Errorf("%w: %s", errInputFormat, input)
 	}
 
 	// Extract matched values
@@ -553,13 +557,13 @@ func computeRoll(input string) (int, error) {
 	checkMod := modifier != 0
 
 	if numSides <= 0 || numDice <= 0 || numDice > 1000 {
-		return 0, errors.New("sides, count or modifier too large")
+		return 0, errInputBounds
 	}
 
 	if math.MaxInt64/numSides < numDice ||
 		(modifier > 0 && math.MaxInt64-numSides*numDice < modifier) ||
 		(modifier < 0 && math.MinInt64+numSides*numDice > modifier) {
-		return 0, errors.New("sides, count or modifier too large")
+		return 0, errResultRangeBounds
 	}
 
 	// Roll the dice
