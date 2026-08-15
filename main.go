@@ -25,6 +25,7 @@ var (
 	logFileName  string
 	commandJSON  string
 	atAdminToken string
+	omdbAPIKey   string
 	logOnly      bool
 	logFile      *os.File
 )
@@ -43,6 +44,7 @@ func main() {
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
 	flag.StringVar(&commandJSON, "commands", "commands.json", "static commands file")
 	flag.StringVar(&atAdminToken, "attoken", "", "angelthump admin token (optional)")
+	flag.StringVar(&omdbAPIKey, "omdbkey", "", "OMDb API key for !imdb command (optional)")
 	flag.BoolVar(&logOnly, "logonly", false, "only 'reply' to logfile, not chat (for debugging)")
 	flag.Parse()
 
@@ -73,6 +75,7 @@ func main() {
 		b.ban,
 		b.sudoku,
 		b.roll,
+		b.imdb,
 	)
 	dgg.AddMessageHandler(b.onMessage)
 	dgg.AddErrorHandler(b.onError)

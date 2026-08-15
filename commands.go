@@ -238,6 +238,82 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	}
 }
 
+var trailingYearRegexp = regexp.MustCompile(`^(.*\S)\s+(\d{4})$`)
+
+// !imdb [-tv|-s] title [year] -- look up a movie/show and print title (year) - rating - link
+// defaults to a direct movie lookup; -tv looks up a series instead; -s searches and lists matches
+func (b *bot) imdb(m dggchat.Message, s *dggchat.Session) {
+	if !strings.HasPrefix(m.Message, "!imdb") {
+		return
+	}
+
+	if omdbAPIKey == "" {
+		b.sendMessageDedupe("imdb lookup not configured", s)
+		return
+	}
+
+	parts := strings.SplitN(m.Message, " ", 2)
+	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+		b.sendMessageDedupe("usage: !imdb [-tv|-s] <title> [year]", s)
+		return
+	}
+	rest := strings.TrimSpace(parts[1])
+
+	mediaType := "movie"
+	search := false
+	switch {
+	case strings.HasPrefix(rest, "-tv "):
+		mediaType = "series"
+		rest = strings.TrimSpace(rest[len("-tv "):])
+	case strings.HasPrefix(rest, "-s "):
+		search = true
+		rest = strings.TrimSpace(rest[len("-s "):])
+	}
+	if rest == "" {
+		b.sendMessageDedupe("usage: !imdb [-tv|-s] <title> [year]", s)
+		return
+	}
+
+	if search {
+		sr, err := searchIMDb(rest, mediaType)
+		if err != nil {
+			b.sendMessageDedupe(fmt.Sprintf("imdb: %s", err.Error()), s)
+			return
+		}
+		max := len(sr.Search)
+		if max > 5 {
+			max = 5
+		}
+		matches := make([]string, 0, max)
+		for _, item := range sr.Search[:max] {
+			matches = append(matches, fmt.Sprintf("%s (%s)", item.Title, item.Year))
+		}
+		b.sendMessageDedupe(strings.Join(matches, ", "), s)
+		return
+	}
+
+	title, year := rest, ""
+	if match := trailingYearRegexp.FindStringSubmatch(rest); match != nil {
+		title, year = match[1], match[2]
+	}
+
+	info, err := getIMDbInfo(title, year, mediaType)
+	if err != nil {
+		b.sendMessageDedupe(fmt.Sprintf("imdb: %s", err.Error()), s)
+		return
+	}
+	b.sendMessageDedupe(formatIMDbInfo(info), s)
+}
+
+func formatIMDbInfo(info omdbResp) string {
+	rating := info.ImdbRating
+	if rating == "" || rating == "N/A" {
+		rating = "no rating"
+	}
+	link := fmt.Sprintf("https://www.imdb.com/title/%s", info.ImdbID)
+	return fmt.Sprintf("%s (%s) - %s - %s", info.Title, info.Year, rating, link)
+}
+
 // TOOD clean up...
 func isCommunityStream(path string) bool {
 	// "/twitch/test" it not. "/memer" is.

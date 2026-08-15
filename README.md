@@ -20,5 +20,6 @@
 | --- | --- | --- | ---- |
 | !stream\|!strim | _ | | Prints lists of top streams.
 | !check | AT_name | !check test | Check status of an AT stream.
+| !imdb | [-tv\|-s] title [year] | !imdb dune 2021 | Looks up a movie by default; `-tv` looks up a series instead; `-s` searches and lists up to 5 matches. Requires `-omdbkey` to be set.
 
 All mod-commands can also be issued via PMs to Bot. E.g. `/w Bot !modify youtube/6n3pFFPSlW4 hidden !nsfw`. Responses will be via normal chat though!

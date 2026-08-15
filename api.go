@@ -183,6 +183,85 @@ func (b *bot) getStreamList() (streamData, error) {
 	return sd, nil
 }
 
+const omdbURL = "https://www.omdbapi.com/"
+
+type omdbResp struct {
+	Title      string `json:"Title"`
+	Year       string `json:"Year"`
+	ImdbID     string `json:"imdbID"`
+	ImdbRating string `json:"imdbRating"`
+	Response   string `json:"Response"`
+	Error      string `json:"Error"`
+}
+
+type omdbSearchResp struct {
+	Search []struct {
+		Title  string `json:"Title"`
+		Year   string `json:"Year"`
+		ImdbID string `json:"imdbID"`
+		Type   string `json:"Type"`
+	} `json:"Search"`
+	Response string `json:"Response"`
+	Error    string `json:"Error"`
+}
+
+// issue a GET against OMDb with the given query params (apikey is added automatically)
+func omdbGet(params map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, omdbURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	q.Set("apikey", omdbAPIKey)
+	for k, v := range params {
+		q.Set(k, v)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	client := &http.Client{Timeout: apiRequestTimeout}
+	return client.Do(req)
+}
+
+// direct title lookup, scoped to a media type (movie/series) and optionally a release year
+func getIMDbInfo(query string, year string, mediaType string) (omdbResp, error) {
+	params := map[string]string{"t": query, "type": mediaType}
+	if year != "" {
+		params["y"] = year
+	}
+	resp, err := omdbGet(params)
+	if err != nil {
+		return omdbResp{}, err
+	}
+	defer resp.Body.Close()
+
+	var or omdbResp
+	if err := json.NewDecoder(resp.Body).Decode(&or); err != nil {
+		return omdbResp{}, err
+	}
+	if or.Response == "False" {
+		return omdbResp{}, fmt.Errorf("%s", or.Error)
+	}
+	return or, nil
+}
+
+// search titles matching the free-text query, scoped to a media type (movie/series)
+func searchIMDb(query string, mediaType string) (omdbSearchResp, error) {
+	resp, err := omdbGet(map[string]string{"s": query, "type": mediaType})
+	if err != nil {
+		return omdbSearchResp{}, err
+	}
+	defer resp.Body.Close()
+
+	var sr omdbSearchResp
+	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
+		return omdbSearchResp{}, err
+	}
+	if sr.Response == "False" {
+		return omdbSearchResp{}, fmt.Errorf("%s", sr.Error)
+	}
+	return sr, nil
+}
+
 // at api data
 type atData struct {
 	ViewerCount int `json:"viewer_count"`
