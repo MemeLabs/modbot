@@ -226,7 +226,12 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 	// TODO workaround to enable deletion
 	if resp == "_" {
 		delete(commands, cmnd)
-		b.sendMessageDedupe("deleted commands if it existed", s)
+		success := saveStaticCommands()
+		if success {
+			b.sendMessageDedupe("deleted command if it existed", s)
+			return
+		}
+		b.sendMessageDedupe("failed saving command, check logs", s)
 	} else {
 		commands[cmnd] = resp
 		success := saveStaticCommands()
