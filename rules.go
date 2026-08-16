@@ -10,7 +10,7 @@ import (
 )
 
 // Prevent repeated posting of short messages.
-func (b *bot) noShortMsgSpam(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) noShortMsgSpam(m message, s *dggchat.Session) {
 	// only proceed if the current message is "bad"
 	if len(m.Message) > 2 {
 		return
