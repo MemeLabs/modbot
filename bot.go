@@ -54,6 +54,9 @@ func (b *bot) onMessage(m dggchat.Message, s *dggchat.Session) {
 
 	log.Printf("%s: %s\n", m.Sender.Nick, m.Message)
 
+	setConnected(true)
+	recordMessage()
+
 	for _, p := range b.parsers {
 		p(message{Sender: m.Sender, Timestamp: m.Timestamp, Message: m.Message}, s)
 	}
@@ -81,10 +84,16 @@ func (b *bot) onUnban(m dggchat.Ban, s *dggchat.Session) {
 
 func (b *bot) onSocketError(err error, s *dggchat.Session) {
 	log.Printf("[#] socket error: '%s'\n", err.Error())
+	setConnected(false)
+	// dggchat starts its own reconnect loop right after this handler, and
+	// exposes no callback for a successful one -- setConnected(true) comes from
+	// the pinger and inbound messages instead.
+	wsReconnects.Inc()
 }
 
 func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
 	log.Printf("[#] PM: %s: %s\n", m.User.Nick, m.Message)
+	setConnected(true)
 
 	if isMod(m.User) {
 		// handle PM as command, TODO: rules shouldn't be handled here...
