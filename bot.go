@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/MemeLabs/dggchat"
@@ -18,31 +20,47 @@ type message struct {
 	isPM      bool
 }
 
+// parser inspects an incoming message and optionally acts on it. The context is
+// scoped to handling that single message, so outbound API calls are cancelled
+// when the bot shuts down.
+type parser func(ctx context.Context, m message, s *dggchat.Session)
+
 type bot struct {
+	// Normally a context would be passed as an argument, but dggchat's handler
+	// signatures are fixed, so the shutdown context is carried on the bot and
+	// handed to parsers from there.
+	ctx             context.Context
 	log             []dggchat.Message
 	maxLogLines     int
-	parsers         []func(m message, s *dggchat.Session)
+	parsers         []parser
 	lastNukeVictims []string
 	randomizer      int
 	authCookie      string
 }
 
-func newBot(authCookie string, maxLogLines int) *bot {
+func newBot(ctx context.Context, authCookie string, maxLogLines int) *bot {
 	if maxLogLines < 0 {
 		maxLogLines = 0
 	}
 
-	b := bot{
-		log:         make([]dggchat.Message, maxLogLines),
+	return &bot{
+		ctx:         ctx,
+		log:         make([]dggchat.Message, 0, maxLogLines),
 		maxLogLines: maxLogLines,
 		randomizer:  0, // TODO workaround for dup msgs, remove me...
 		authCookie:  authCookie,
 	}
-	return &b
 }
 
-func (b *bot) addParser(p ...func(m message, s *dggchat.Session)) {
+func (b *bot) addParser(p ...parser) {
 	b.parsers = append(b.parsers, p...)
+}
+
+// dispatch runs every parser against the message.
+func (b *bot) dispatch(m message, s *dggchat.Session) {
+	for _, p := range b.parsers {
+		p(b.ctx, m, s)
+	}
 }
 
 func (b *bot) onMessage(m dggchat.Message, s *dggchat.Session) {
@@ -57,9 +75,7 @@ func (b *bot) onMessage(m dggchat.Message, s *dggchat.Session) {
 	setConnected(true)
 	recordMessage()
 
-	for _, p := range b.parsers {
-		p(message{Sender: m.Sender, Timestamp: m.Timestamp, Message: m.Message}, s)
-	}
+	b.dispatch(message{Sender: m.Sender, Timestamp: m.Timestamp, Message: m.Message}, s)
 }
 
 func (b *bot) onError(e string, s *dggchat.Session) {
@@ -95,31 +111,27 @@ func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
 	log.Printf("[#] PM: %s: %s\n", m.User.Nick, m.Message)
 	setConnected(true)
 
-	if isMod(m.User) {
-		// handle PM as command, TODO: rules shouldn't be handled here...
-		msg := message{
-			Sender:    m.User,
-			Timestamp: m.Timestamp,
-			Message:   m.Message,
-			isPM:      true,
-		}
-
-		for _, p := range b.parsers {
-			p(msg, s)
-		}
+	if !isMod(m.User) {
+		return
 	}
+
+	// handle PM as command, TODO: rules shouldn't be handled here...
+	b.dispatch(message{
+		Sender:    m.User,
+		Timestamp: m.Timestamp,
+		Message:   m.Message,
+		isPM:      true,
+	}, s)
 }
 
 // return last n messsages for given user from log
 func (b *bot) getLastMessages(nick string, n int) []dggchat.Message {
 	var output []dggchat.Message
-	for i := len(b.log) - 1; i >= 0; i-- {
-
+	for _, msg := range slices.Backward(b.log) {
 		if len(output) >= n {
 			return output
 		}
 
-		msg := b.log[i]
 		if msg.Sender.Nick == nick {
 			output = append(output, msg)
 		}

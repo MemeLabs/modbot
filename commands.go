@@ -1,23 +1,19 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/MemeLabs/dggchat"
-)
-
-var (
-	mutex    sync.Mutex
-	commands = map[string]string{}
 )
 
 func isMod(user dggchat.User) bool {
@@ -59,19 +55,14 @@ func (b *bot) sendPublicDedupe(reply string, s *dggchat.Session) {
 	}
 }
 
-func (b *bot) staticMessage(m message, s *dggchat.Session) {
-	for command, response := range commands {
-		if strings.HasPrefix(m.Message, command) {
-
-			b.sendMessageDedupe(m, response, s)
-			// only handle the first match
-			return
-		}
+func (b *bot) staticMessage(_ context.Context, m message, s *dggchat.Session) {
+	if resp, ok := staticCommands.lookup(m.Message); ok {
+		b.sendMessageDedupe(m, resp, s)
 	}
 }
 
 // !nuke str, !nukeregex regexp
-func (b *bot) nuke(m message, s *dggchat.Session) {
+func (b *bot) nuke(_ context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!nuke") {
 		return
 	}
@@ -83,7 +74,7 @@ func (b *bot) nuke(m message, s *dggchat.Session) {
 
 	isRegexNuke := parts[0] == "!nukeregex"
 	badstr := parts[1]
-	badregexp, err := regexp.Compile(badstr) // TODO when is error not nil??
+	badregexp, err := regexp.Compile(badstr)
 	if isRegexNuke && err != nil {
 		b.sendMessageDedupe(m, "regexp error", s)
 		return
@@ -94,7 +85,11 @@ func (b *bot) nuke(m message, s *dggchat.Session) {
 	victimNames := []string{}
 	// the command itself will be last in the log and caught, exclude that one.
 	// TODO: except if the command was issued via PM...
-	for _, m := range b.log[:len(b.log)-1] {
+	history := b.log
+	if len(history) > 0 {
+		history = history[:len(history)-1]
+	}
+	for _, m := range history {
 		// don't nuke mods.
 		if isMod(m.Sender) {
 			continue
@@ -121,14 +116,11 @@ func (b *bot) nuke(m message, s *dggchat.Session) {
 		// TODO print/send summary?
 	}
 
-	if b.lastNukeVictims == nil {
-		b.lastNukeVictims = []string{}
-	}
-	// combine array so we are able to undo all past nukes at once, if necessary
+	// combine slices so we are able to undo all past nukes at once, if necessary
 	b.lastNukeVictims = append(b.lastNukeVictims, victimNames...)
 }
 
-func (b *bot) sudoku(m message, s *dggchat.Session) {
+func (b *bot) sudoku(_ context.Context, m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!sudoku") {
 		return
 	}
@@ -137,8 +129,8 @@ func (b *bot) sudoku(m message, s *dggchat.Session) {
 }
 
 // !aegis - undo (all) past nukes
-func (b *bot) aegis(m message, s *dggchat.Session) {
-	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!aegis") || b.lastNukeVictims == nil {
+func (b *bot) aegis(_ context.Context, m message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!aegis") {
 		return
 	}
 
@@ -149,20 +141,18 @@ func (b *bot) aegis(m message, s *dggchat.Session) {
 }
 
 // !rename - change a chatter's username
-func (b *bot) rename(m message, s *dggchat.Session) {
+func (b *bot) rename(ctx context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!rename") {
 		return
 	}
 
-	parts := strings.Split(m.Message, " ")
+	parts := strings.Fields(m.Message)
 	if len(parts) < 3 {
 		return
 	}
 
-	oldName := parts[1]
-	newName := parts[2]
-	err := b.renameUser(oldName, newName)
-	if err != nil {
+	oldName, newName := parts[1], parts[2]
+	if err := b.renameUser(ctx, oldName, newName); err != nil {
 		msg := fmt.Sprintf("'%s' to '%s' by %s failed with '%s'",
 			oldName, newName, m.Sender.Nick, err.Error())
 		log.Printf("[##] rename: %s\n", msg)
@@ -181,7 +171,7 @@ func (b *bot) rename(m message, s *dggchat.Session) {
 }
 
 // !say - say a message
-func (b *bot) say(m message, s *dggchat.Session) {
+func (b *bot) say(_ context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!say") {
 		return
 	}
@@ -195,16 +185,16 @@ func (b *bot) say(m message, s *dggchat.Session) {
 }
 
 // !mute - mute a chatter for a given time
-func (b *bot) mute(m message, s *dggchat.Session) {
+func (b *bot) mute(_ context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!mute") {
 		return
 	}
-	parts := strings.Split(m.Message, " ")
+	parts := strings.Fields(m.Message)
 	if len(parts) < 2 {
 		return
 	}
 
-	var duration time.Duration = -1
+	duration := time.Duration(-1)
 	if len(parts) >= 3 {
 		dur, err := time.ParseDuration(parts[2])
 		if err != nil {
@@ -217,11 +207,11 @@ func (b *bot) mute(m message, s *dggchat.Session) {
 }
 
 // !unmute - unmute a chatter
-func (b *bot) unmute(m message, s *dggchat.Session) {
+func (b *bot) unmute(_ context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!unmute") {
 		return
 	}
-	parts := strings.Split(m.Message, " ")
+	parts := strings.Fields(m.Message)
 	if len(parts) < 2 {
 		return
 	}
@@ -245,7 +235,7 @@ func normalizeCommandName(msg string, minParts int) (cmnd string, rest []string,
 }
 
 // !addcommand command response
-func (b *bot) addCommand(m message, s *dggchat.Session) {
+func (b *bot) addCommand(_ context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!addcommand") {
 		return
 	}
@@ -256,19 +246,16 @@ func (b *bot) addCommand(m message, s *dggchat.Session) {
 	}
 	resp := strings.Join(respParts, " ")
 
-	mutex.Lock()
-	defer mutex.Unlock()
-	commands[cmnd] = resp
-	success := saveStaticCommands()
-	if success {
-		b.sendMessageDedupe(m, fmt.Sprintf("added new command %s", cmnd), s)
+	if err := staticCommands.set(cmnd, resp); err != nil {
+		log.Printf("[##] failed adding command %s: %v\n", cmnd, err)
+		b.sendMessageDedupe(m, "failed saving command, check logs", s)
 		return
 	}
-	b.sendMessageDedupe(m, "failed saving command, check logs", s)
+	b.sendMessageDedupe(m, "added new command "+cmnd, s)
 }
 
 // !delcommand command
-func (b *bot) delCommand(m message, s *dggchat.Session) {
+func (b *bot) delCommand(_ context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!delcommand") {
 		return
 	}
@@ -278,22 +265,19 @@ func (b *bot) delCommand(m message, s *dggchat.Session) {
 		return
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-	delete(commands, cmnd)
-	success := saveStaticCommands()
-	if success {
-		b.sendMessageDedupe(m, fmt.Sprintf("deleted command %s if it existed", cmnd), s)
+	if err := staticCommands.delete(cmnd); err != nil {
+		log.Printf("[##] failed deleting command %s: %v\n", cmnd, err)
+		b.sendMessageDedupe(m, "failed saving command, check logs", s)
 		return
 	}
-	b.sendMessageDedupe(m, "failed saving command, check logs", s)
+	b.sendMessageDedupe(m, fmt.Sprintf("deleted command %s if it existed", cmnd), s)
 }
 
 var trailingYearRegexp = regexp.MustCompile(`^(.*\S)\s+(\d{4})$`)
 
 // !imdb [-tv|-s] title [year] -- look up a movie/show and print title (year) - rating - link
 // defaults to a direct movie lookup; -tv looks up a series instead; -s searches and lists matches
-func (b *bot) imdb(m message, s *dggchat.Session) {
+func (b *bot) imdb(ctx context.Context, m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!imdb") {
 		return
 	}
@@ -303,9 +287,11 @@ func (b *bot) imdb(m message, s *dggchat.Session) {
 		return
 	}
 
+	const usage = "usage: !imdb [-tv|-s] <title> [year]"
+
 	parts := strings.SplitN(m.Message, " ", 2)
 	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
-		b.sendMessageDedupe(m, "usage: !imdb [-tv|-s] <title> [year]", s)
+		b.sendMessageDedupe(m, usage, s)
 		return
 	}
 	rest := strings.TrimSpace(parts[1])
@@ -315,28 +301,25 @@ func (b *bot) imdb(m message, s *dggchat.Session) {
 	switch {
 	case strings.HasPrefix(rest, "-tv "):
 		mediaType = "series"
-		rest = strings.TrimSpace(rest[len("-tv "):])
+		rest = strings.TrimSpace(strings.TrimPrefix(rest, "-tv "))
 	case strings.HasPrefix(rest, "-s "):
 		search = true
-		rest = strings.TrimSpace(rest[len("-s "):])
+		rest = strings.TrimSpace(strings.TrimPrefix(rest, "-s "))
 	}
 	if rest == "" {
-		b.sendMessageDedupe(m, "usage: !imdb [-tv|-s] <title> [year]", s)
+		b.sendMessageDedupe(m, usage, s)
 		return
 	}
 
 	if search {
-		sr, err := searchIMDb(rest, mediaType)
+		sr, err := searchIMDb(ctx, rest, mediaType)
 		if err != nil {
-			b.sendMessageDedupe(m, fmt.Sprintf("imdb: %s", err.Error()), s)
+			b.sendMessageDedupe(m, "imdb: "+err.Error(), s)
 			return
 		}
-		max := len(sr.Search)
-		if max > 5 {
-			max = 5
-		}
-		matches := make([]string, 0, max)
-		for _, item := range sr.Search[:max] {
+		results := sr.Search[:min(len(sr.Search), 5)]
+		matches := make([]string, 0, len(results))
+		for _, item := range results {
 			matches = append(matches, fmt.Sprintf("%s (%s)", item.Title, item.Year))
 		}
 		b.sendMessageDedupe(m, strings.Join(matches, ", "), s)
@@ -348,9 +331,9 @@ func (b *bot) imdb(m message, s *dggchat.Session) {
 		title, year = match[1], match[2]
 	}
 
-	info, err := getIMDbInfo(title, year, mediaType)
+	info, err := getIMDbInfo(ctx, title, year, mediaType)
 	if err != nil {
-		b.sendMessageDedupe(m, fmt.Sprintf("imdb: %s", err.Error()), s)
+		b.sendMessageDedupe(m, "imdb: "+err.Error(), s)
 		return
 	}
 	b.sendMessageDedupe(m, formatIMDbInfo(info), s)
@@ -361,102 +344,77 @@ func formatIMDbInfo(info omdbResp) string {
 	if rating == "" || rating == "N/A" {
 		rating = "no rating"
 	}
-	link := fmt.Sprintf("https://www.imdb.com/title/%s", info.ImdbID)
+	link := "https://www.imdb.com/title/" + info.ImdbID
 	return fmt.Sprintf("%s (%s) - %s - %s", info.Title, info.Year, rating, link)
 }
 
-// TOOD clean up...
+// TODO clean up...
 func isCommunityStream(path string) bool {
 	// "/twitch/test" it not. "/memer" is.
 	return strings.Count(path, "/") == 1 || strings.Contains(path, "angelthump")
 }
 
 // !stream or !strim(s) -- show top streams in chat
-func (b *bot) printTopStreams(m message, s *dggchat.Session) {
+func (b *bot) printTopStreams(ctx context.Context, m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!stream") && !strings.HasPrefix(m.Message, "!strim") {
 		return
 	}
 
-	sd, err := b.getStreamList()
+	sd, err := b.getStreamList(ctx)
 	if err != nil {
 		log.Printf("%v\n", err)
 		b.sendMessageDedupe(m, "error getting api data", s)
 		return
 	}
 
-	// filter hidden streams
-	allStreams := sd.StreamList
-	filteredStreams := streamData{}
-	for _, v := range allStreams {
-		if !v.Hidden {
-			filteredStreams.StreamList = append(filteredStreams.StreamList, v)
+	// - assumption: API gives json data sorted by "rustlers".
+	// - community streams get preference, the rest fills up the remaining slots
+	// - data.URL has leading slash
+	var community, rest []string
+	for _, v := range sd.StreamList {
+		if v.Hidden {
+			continue
+		}
+		nsfw := ""
+		if v.Nsfw {
+			nsfw = " [nsfw]"
+		}
+		out := fmt.Sprintf("%d %s%s%s", v.Rustlers, websiteURL, v.URL, nsfw)
+		if isCommunityStream(v.URL) {
+			community = append(community, out)
+		} else {
+			rest = append(rest, out)
 		}
 	}
 
-	// handle case that less than 3 streams are being watched...
-	maxlen := len(filteredStreams.StreamList)
-	if maxlen == 0 {
+	top := slices.Concat(community, rest)
+	if len(top) == 0 {
 		b.sendMessageDedupe(m, "no streams are being watched", s)
 		return
 	}
-	if maxlen > 3 {
-		maxlen = 3
-	}
 
-	alreadyPrinted := 0
-	// - assumption: API gives json data sorted by "rustlers".
-	// - first pass: give community streams preference
-	// - data.URL has leading slash
-	for i := 0; i < len(filteredStreams.StreamList) && alreadyPrinted < maxlen; i++ {
-		data := filteredStreams.StreamList[i]
-		if isCommunityStream(data.URL) {
-			nsfw := ""
-			if data.Nsfw {
-				nsfw = " [nsfw]"
-			}
-			out := fmt.Sprintf("%d %s%s%s", data.Rustlers, websiteURL, data.URL, nsfw)
-			b.sendMessageDedupe(m, out, s)
-			alreadyPrinted++
-		}
-	}
-
-	// TODO clean me up...
-	for i := 0; alreadyPrinted < maxlen; i++ {
-		data := filteredStreams.StreamList[i]
-		if !isCommunityStream(data.URL) {
-			nsfw := ""
-			if data.Nsfw {
-				nsfw = " [nsfw]"
-			}
-			data := filteredStreams.StreamList[i]
-			out := fmt.Sprintf("%d %s%s%s", data.Rustlers, websiteURL, data.URL, nsfw)
-			b.sendMessageDedupe(m, out, s)
-			alreadyPrinted++
-		}
+	for _, out := range top[:min(len(top), 3)] {
+		b.sendMessageDedupe(m, out, s)
 	}
 }
 
-func parseModifiers(s []string) (streamModifier, error) {
+func parseModifiers(mods []string) (streamModifier, error) {
 	var sm streamModifier
 
-	for _, part := range s {
-		switch part {
+	for _, part := range mods {
+		// a leading "!" inverts the modifier: "!nsfw" clears the nsfw flag
+		name, negated := strings.CutPrefix(part, "!")
+		value := !negated
+
+		switch name {
 		case "nsfw":
-			sm.Nsfw = "true"
-		case "!nsfw":
-			sm.Nsfw = "false"
+			sm.Nsfw = &value
 		case "hidden":
-			sm.Hidden = "true"
-		case "!hidden":
-			sm.Hidden = "false"
+			sm.Hidden = &value
 		case "afk":
-			sm.Afk = "true"
-		case "!afk":
-			sm.Afk = "false"
+			sm.Afk = &value
 		case "promoted":
-			sm.Promoted = "true"
-		case "!promoted":
-			sm.Promoted = "false"
+			sm.Promoted = &value
 		default:
 			return streamModifier{}, fmt.Errorf("invalid modifier: '%s'", part)
 		}
@@ -465,14 +423,14 @@ func parseModifiers(s []string) (streamModifier, error) {
 	return sm, nil
 }
 
-func (b *bot) modifyStream(m message, s *dggchat.Session) {
+func (b *bot) modifyStream(ctx context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!modify") {
 		return
 	}
 
 	//                       parts[2:], ...
 	// !modify youtube/memes nsfw !hidden ...
-	parts := strings.Split(m.Message, " ")
+	parts := strings.Fields(m.Message)
 	if len(parts) < 3 {
 		return
 	}
@@ -485,8 +443,7 @@ func (b *bot) modifyStream(m message, s *dggchat.Session) {
 
 	identifier := parts[1]
 
-	err = b.setStreamAttributes(identifier, sm)
-	if err != nil {
+	if err := b.setStreamAttributes(ctx, identifier, sm); err != nil {
 		log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' failed with '%s'\n",
 			identifier, sm, m.Sender.Nick, err.Error())
 
@@ -496,28 +453,26 @@ func (b *bot) modifyStream(m message, s *dggchat.Session) {
 	}
 	log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' success!\n",
 		identifier, sm, m.Sender.Nick)
-	b.sendMessageDedupe(m, fmt.Sprintf("modify success %s", ominousEmote), s)
+	b.sendMessageDedupe(m, "modify success "+ominousEmote, s)
 }
 
 // !check ATusername
-func (b *bot) checkAT(m message, s *dggchat.Session) {
+func (b *bot) checkAT(ctx context.Context, m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!check") {
 		return
 	}
 
-	parts := strings.Split(m.Message, " ")
+	parts := strings.Fields(m.Message)
 	if len(parts) != 2 {
 		return
 	}
 	username := parts[1]
 
-	atd, err := b.getATUserData(username)
+	atd, err := b.getATUserData(ctx, username)
 	if err != nil {
-		log.Printf("[##] checkAT error1: '%s'\n",
-			err.Error())
+		log.Printf("[##] checkAT error1: '%s'\n", err.Error())
 
-		// workaround... depends on content of error message
-		if strings.Contains(err.Error(), "404") {
+		if errors.Is(err, errNotFound) {
 			log.Printf("[##] check: not found\n")
 			return
 		}
@@ -527,10 +482,9 @@ func (b *bot) checkAT(m message, s *dggchat.Session) {
 	}
 
 	// additionally check strim data
-	sd, err := b.getStreamList()
+	sd, err := b.getStreamList(ctx)
 	if err != nil {
-		log.Printf("[##] checkAT error2: '%s'\n",
-			err.Error())
+		log.Printf("[##] checkAT error2: '%s'\n", err.Error())
 		b.sendMessageDedupe(m, "error getting api data", s)
 		return
 	}
@@ -566,7 +520,7 @@ func (b *bot) checkAT(m message, s *dggchat.Session) {
 }
 
 // !(un)drop atUser
-func (b *bot) dropAT(m message, s *dggchat.Session) {
+func (b *bot) dropAT(ctx context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || (!strings.HasPrefix(m.Message, "!drop") && !strings.HasPrefix(m.Message, "!undrop")) {
 		return
 	}
@@ -582,16 +536,16 @@ func (b *bot) dropAT(m message, s *dggchat.Session) {
 
 	if doBan && len(parts) < 3 {
 		s.SendPrivateMessage(m.Sender.Nick,
-			fmt.Sprintf("%s - please provide a ban reason", m.Sender.Nick))
+			m.Sender.Nick+" - please provide a ban reason")
 		return
 	}
 	if doBan {
 		reason = parts[2]
 	}
 
-	reply, err := b.banATuser(username, reason, doBan)
+	reply, err := b.banATuser(ctx, username, reason, doBan)
 	if err != nil {
-		log.Println(fmt.Sprintf("[##] drop error: '%s'", err.Error()))
+		log.Printf("[##] drop error: '%s'\n", err.Error())
 		return
 	}
 
@@ -613,7 +567,7 @@ func humanizeDuration(duration time.Duration) string {
 		{"day", days},
 		{"hour", hours},
 		{"min", minutes},
-		//{"sec", seconds},
+		// {"sec", seconds},
 	}
 
 	parts := []string{}
@@ -633,55 +587,54 @@ func humanizeDuration(duration time.Duration) string {
 }
 
 // !(un)ban -- ban a user
-func (b *bot) ban(m message, s *dggchat.Session) {
+func (b *bot) ban(_ context.Context, m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || (!strings.HasPrefix(m.Message, "!ban") && !strings.HasPrefix(m.Message, "!unban")) {
 		return
 	}
 
-	parts := strings.Split(m.Message, " ")
+	parts := strings.Fields(m.Message)
 	if len(parts) < 2 {
 		return
 	}
 
-	if parts[0] == "!ban" {
+	switch parts[0] {
+	case "!ban":
 		reason := ""
 		if len(parts) == 3 {
 			reason = parts[2]
 		}
 		s.SendBan(parts[1], reason, 0, false)
-	} else if parts[0] == "!unban" {
+	case "!unban":
 		s.SendUnban(parts[1])
 	}
 }
 
-var errInputFormat = errors.New("invalid input format")
-var errInputBounds = errors.New("input out of bounds")
-var errResultRangeBounds = errors.New("result range out of bounds")
+var (
+	errInputFormat       = errors.New("invalid input format")
+	errInputBounds       = errors.New("input out of bounds")
+	errResultRangeBounds = errors.New("result range out of bounds")
+)
+
+// !roll [count]d<sides>[+/-modifier]
+var rollRegexp = regexp.MustCompile(`^!rolls?\s+(\d+)(?:d(\d+))?\s*([+\-]\s*\d+)?`)
 
 func computeRoll(input string) (int, error) {
-
-	// Define a regular expression to extract dice rolling information
-	regexPattern := `^!rolls?\s+(\d+)(?:d(\d+))?\s*([+\-]\s*\d+)?`
-	regex := regexp.MustCompile(regexPattern)
-
-	// Match the regular expression against the input string
-	matches := regex.FindStringSubmatch(input)
-
+	matches := rollRegexp.FindStringSubmatch(input)
 	if matches == nil {
 		return 0, fmt.Errorf("%w: %s", errInputFormat, input)
 	}
 
-	// Extract matched values
 	numDice, _ := strconv.Atoi(matches[1])
 	numSides, _ := strconv.Atoi(matches[2])
 
+	// bare "!roll 20" means one d20
 	if matches[2] == "" {
 		numSides = numDice
 		numDice = 1
 	}
 
-	modifier, _ := strconv.Atoi(matches[3])
-	checkMod := modifier != 0
+	// the regexp tolerates whitespace around the sign ("2d2 + 100"), Atoi does not
+	modifier, _ := strconv.Atoi(strings.ReplaceAll(matches[3], " ", ""))
 
 	if numSides <= 0 || numDice <= 0 || numDice > 1000 {
 		return 0, errInputBounds
@@ -693,33 +646,21 @@ func computeRoll(input string) (int, error) {
 		return 0, errResultRangeBounds
 	}
 
-	// Roll the dice
 	result := 0
-	for i := 0; i < numDice; i++ {
-		result += rand.Intn(numSides) + 1
+	for range numDice {
+		result += rand.IntN(numSides) + 1
 	}
 
-	// Apply the modifier if present
-	if checkMod {
-		result += modifier
-	}
-
-	return result, nil
+	return result + modifier, nil
 }
 
 // !roll sides [count] - roll dice
-func (b *bot) roll(m message, s *dggchat.Session) {
+func (b *bot) roll(_ context.Context, m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!roll") {
 		return
 	}
 
-	parts := strings.Split(m.Message, " ")
-	if len(parts) < 2 {
-		return
-	}
-
-	var sum, err = computeRoll(m.Message)
-
+	sum, err := computeRoll(m.Message)
 	if err != nil {
 		return
 	}

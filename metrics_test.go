@@ -13,8 +13,10 @@ func TestHealthzReflectsConnectionState(t *testing.T) {
 	serveMetrics(addr)
 
 	var err error
-	for i := 0; i < 100; i++ {
-		if _, err = http.Get("http://" + addr + "/healthz"); err == nil {
+	for range 100 {
+		var resp *http.Response
+		if resp, err = get(t, "http://"+addr+"/healthz"); err == nil {
+			resp.Body.Close()
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -33,7 +35,7 @@ func TestHealthzReflectsConnectionState(t *testing.T) {
 		t.Errorf("checkHealth() failed while connected: %v", err)
 	}
 
-	resp, err := http.Get("http://" + addr + "/metrics")
+	resp, err := get(t, "http://"+addr+"/metrics")
 	if err != nil {
 		t.Fatalf("GET /metrics: %v", err)
 	}
@@ -41,6 +43,17 @@ func TestHealthzReflectsConnectionState(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("GET /metrics = %s, want 200", resp.Status)
 	}
+}
+
+// get issues a GET bound to the test's context.
+func get(t *testing.T, url string) (*http.Response, error) {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatalf("building request for %s: %v", url, err)
+	}
+	return http.DefaultClient.Do(req)
 }
 
 func TestCheckHealthRejectsBadAddress(t *testing.T) {

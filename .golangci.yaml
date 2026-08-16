@@ -1,0 +1,37 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose      # every http response body must be closed
+    - errorlint      # %w / errors.Is instead of == and %v
+    - gocritic
+    - misspell
+    - nilerr
+    - noctx          # no http requests without a context
+    - perfsprint
+    - revive
+    - unconvert
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+  settings:
+    revive:
+      rules:
+        - name: unused-parameter
+          # handlers must match dggchat's signatures, unused args are expected
+          disabled: true
+  exclusions:
+    presets:
+      - common-false-positives
+      - std-error-handling
+    rules:
+      # chat/mute/ban sends are best-effort; a failed send must not abort the
+      # parser, and dggchat already surfaces socket errors via its error handler
+      - linters: [errcheck]
+        source: 's\.(Send(Mute|Unmute|Ban|Unban|PrivateMessage))\('
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
