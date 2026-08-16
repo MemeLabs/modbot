@@ -2,22 +2,29 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/MemeLabs/dggchat"
 )
 
+// message mirrors dggchat.Message and records how it reached the bot. Parsers
+// use isPM to reply on the channel the command arrived on, so that a command
+// issued over PM doesn't leak its reply into public chat. It isn't an embedded
+// dggchat.Message because the outer Message field would shadow the inner one.
+type message struct {
+	Sender    dggchat.User
+	Timestamp time.Time
+	Message   string
+	isPM      bool
+}
+
 type bot struct {
 	log             []dggchat.Message
 	maxLogLines     int
-	parsers         []func(m dggchat.Message, s *dggchat.Session)
+	parsers         []func(m message, s *dggchat.Session)
 	lastNukeVictims []string
 	randomizer      int
 	authCookie      string
-	// pmReplyNick, when non-empty, redirects sendMessageDedupe to a private
-	// message instead of public chat. Set for the duration of parser dispatch
-	// triggered by onPMHandler, since replies to a PM command should stay
-	// private rather than leak into the public channel.
-	pmReplyNick string
 }
 
 func newBot(authCookie string, maxLogLines int) *bot {
@@ -34,7 +41,7 @@ func newBot(authCookie string, maxLogLines int) *bot {
 	return &b
 }
 
-func (b *bot) addParser(p ...func(m dggchat.Message, s *dggchat.Session)) {
+func (b *bot) addParser(p ...func(m message, s *dggchat.Session)) {
 	b.parsers = append(b.parsers, p...)
 }
 
@@ -48,7 +55,7 @@ func (b *bot) onMessage(m dggchat.Message, s *dggchat.Session) {
 	log.Printf("%s: %s\n", m.Sender.Nick, m.Message)
 
 	for _, p := range b.parsers {
-		p(m, s)
+		p(message{Sender: m.Sender, Timestamp: m.Timestamp, Message: m.Message}, s)
 	}
 }
 
@@ -81,14 +88,12 @@ func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
 
 	if isMod(m.User) {
 		// handle PM as command, TODO: rules shouldn't be handled here...
-		msg := dggchat.Message{
+		msg := message{
 			Sender:    m.User,
 			Timestamp: m.Timestamp,
 			Message:   m.Message,
+			isPM:      true,
 		}
-
-		b.pmReplyNick = m.User.Nick
-		defer func() { b.pmReplyNick = "" }()
 
 		for _, p := range b.parsers {
 			p(msg, s)

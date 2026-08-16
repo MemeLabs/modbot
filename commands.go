@@ -24,32 +24,46 @@ func isMod(user dggchat.User) bool {
 	return user.HasFeature("moderator") || user.HasFeature("admin")
 }
 
-// TODO
-func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
+// sendMessageDedupe replies on the channel src arrived on: privately to the
+// sender for a command issued over PM, in public chat otherwise.
+func (b *bot) sendMessageDedupe(src message, reply string, s *dggchat.Session) {
+	if !src.isPM {
+		b.sendPublicDedupe(reply, s)
+		return
+	}
+
 	if logOnly {
-		log.Printf("[##] LOGONLY reply: %s\n", m)
+		log.Printf("[##] LOGONLY PM reply to %s: %s\n", src.Sender.Nick, reply)
+		return
+	}
+
+	// no dedupe suffix needed, the duplicate filter only applies to public chat
+	if err := s.SendPrivateMessage(src.Sender.Nick, reply); err != nil {
+		log.Printf("[##] send error: %s\n", err.Error())
+	}
+}
+
+// sendPublicDedupe always replies in public chat, even for commands issued over
+// PM. Use it for commands whose whole purpose is to say something publicly.
+// TODO
+func (b *bot) sendPublicDedupe(reply string, s *dggchat.Session) {
+	if logOnly {
+		log.Printf("[##] LOGONLY reply: %s\n", reply)
 		return
 	}
 
 	b.randomizer++
 	rnd := " " + strings.Repeat(".", b.randomizer%2)
-
-	var err error
-	if b.pmReplyNick != "" {
-		err = s.SendPrivateMessage(b.pmReplyNick, m+rnd)
-	} else {
-		err = s.SendMessage(m + rnd)
-	}
-	if err != nil {
+	if err := s.SendMessage(reply + rnd); err != nil {
 		log.Printf("[##] send error: %s\n", err.Error())
 	}
 }
 
-func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) staticMessage(m message, s *dggchat.Session) {
 	for command, response := range commands {
 		if strings.HasPrefix(m.Message, command) {
 
-			b.sendMessageDedupe(response, s)
+			b.sendMessageDedupe(m, response, s)
 			// only handle the first match
 			return
 		}
@@ -57,7 +71,7 @@ func (b *bot) staticMessage(m dggchat.Message, s *dggchat.Session) {
 }
 
 // !nuke str, !nukeregex regexp
-func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) nuke(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!nuke") {
 		return
 	}
@@ -71,7 +85,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 	badstr := parts[1]
 	badregexp, err := regexp.Compile(badstr) // TODO when is error not nil??
 	if isRegexNuke && err != nil {
-		b.sendMessageDedupe("regexp error", s)
+		b.sendMessageDedupe(m, "regexp error", s)
 		return
 	}
 
@@ -114,7 +128,7 @@ func (b *bot) nuke(m dggchat.Message, s *dggchat.Session) {
 	b.lastNukeVictims = append(b.lastNukeVictims, victimNames...)
 }
 
-func (b *bot) sudoku(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) sudoku(m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!sudoku") {
 		return
 	}
@@ -123,7 +137,7 @@ func (b *bot) sudoku(m dggchat.Message, s *dggchat.Session) {
 }
 
 // !aegis - undo (all) past nukes
-func (b *bot) aegis(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) aegis(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!aegis") || b.lastNukeVictims == nil {
 		return
 	}
@@ -135,7 +149,7 @@ func (b *bot) aegis(m dggchat.Message, s *dggchat.Session) {
 }
 
 // !rename - change a chatter's username
-func (b *bot) rename(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) rename(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!rename") {
 		return
 	}
@@ -153,17 +167,21 @@ func (b *bot) rename(m dggchat.Message, s *dggchat.Session) {
 			oldName, newName, m.Sender.Nick, err.Error())
 		log.Printf("[##] rename: %s\n", msg)
 
+		// the detailed failure always goes to the sender privately, so only
+		// add the public "check logs" note when the command wasn't a PM
 		s.SendPrivateMessage(m.Sender.Nick, msg)
-		b.sendMessageDedupe("rename error, check logs", s)
+		if !m.isPM {
+			b.sendMessageDedupe(m, "rename error, check logs", s)
+		}
 		return
 	}
 	log.Printf("[##] rename: '%s' to '%s' by '%s' success!\n",
 		oldName, newName, m.Sender.Nick)
-	b.sendMessageDedupe(fmt.Sprintf("name changed, %s please reconnect", oldName), s)
+	b.sendMessageDedupe(m, fmt.Sprintf("name changed, %s please reconnect", oldName), s)
 }
 
 // !say - say a message
-func (b *bot) say(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) say(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!say") {
 		return
 	}
@@ -173,11 +191,11 @@ func (b *bot) say(m dggchat.Message, s *dggchat.Session) {
 	if len(parts) != 2 {
 		return
 	}
-	b.sendMessageDedupe(parts[1], s)
+	b.sendPublicDedupe(parts[1], s)
 }
 
 // !mute - mute a chatter for a given time
-func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) mute(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!mute") {
 		return
 	}
@@ -199,7 +217,7 @@ func (b *bot) mute(m dggchat.Message, s *dggchat.Session) {
 }
 
 // !unmute - unmute a chatter
-func (b *bot) unmute(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) unmute(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!unmute") {
 		return
 	}
@@ -211,7 +229,7 @@ func (b *bot) unmute(m dggchat.Message, s *dggchat.Session) {
 }
 
 // !addcommand command response
-func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) addCommand(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!addcommand") {
 		return
 	}
@@ -234,18 +252,18 @@ func (b *bot) addCommand(m dggchat.Message, s *dggchat.Session) {
 		delete(commands, cmnd)
 		success := saveStaticCommands()
 		if success {
-			b.sendMessageDedupe("deleted command if it existed", s)
+			b.sendMessageDedupe(m, "deleted command if it existed", s)
 			return
 		}
-		b.sendMessageDedupe("failed saving command, check logs", s)
+		b.sendMessageDedupe(m, "failed saving command, check logs", s)
 	} else {
 		commands[cmnd] = resp
 		success := saveStaticCommands()
 		if success {
-			b.sendMessageDedupe(fmt.Sprintf("added new command %s", cmnd), s)
+			b.sendMessageDedupe(m, fmt.Sprintf("added new command %s", cmnd), s)
 			return
 		}
-		b.sendMessageDedupe("failed saving command, check logs", s)
+		b.sendMessageDedupe(m, "failed saving command, check logs", s)
 	}
 }
 
@@ -253,19 +271,19 @@ var trailingYearRegexp = regexp.MustCompile(`^(.*\S)\s+(\d{4})$`)
 
 // !imdb [-tv|-s] title [year] -- look up a movie/show and print title (year) - rating - link
 // defaults to a direct movie lookup; -tv looks up a series instead; -s searches and lists matches
-func (b *bot) imdb(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) imdb(m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!imdb") {
 		return
 	}
 
 	if omdbAPIKey == "" {
-		b.sendMessageDedupe("imdb lookup not configured", s)
+		b.sendMessageDedupe(m, "imdb lookup not configured", s)
 		return
 	}
 
 	parts := strings.SplitN(m.Message, " ", 2)
 	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
-		b.sendMessageDedupe("usage: !imdb [-tv|-s] <title> [year]", s)
+		b.sendMessageDedupe(m, "usage: !imdb [-tv|-s] <title> [year]", s)
 		return
 	}
 	rest := strings.TrimSpace(parts[1])
@@ -281,14 +299,14 @@ func (b *bot) imdb(m dggchat.Message, s *dggchat.Session) {
 		rest = strings.TrimSpace(rest[len("-s "):])
 	}
 	if rest == "" {
-		b.sendMessageDedupe("usage: !imdb [-tv|-s] <title> [year]", s)
+		b.sendMessageDedupe(m, "usage: !imdb [-tv|-s] <title> [year]", s)
 		return
 	}
 
 	if search {
 		sr, err := searchIMDb(rest, mediaType)
 		if err != nil {
-			b.sendMessageDedupe(fmt.Sprintf("imdb: %s", err.Error()), s)
+			b.sendMessageDedupe(m, fmt.Sprintf("imdb: %s", err.Error()), s)
 			return
 		}
 		max := len(sr.Search)
@@ -299,7 +317,7 @@ func (b *bot) imdb(m dggchat.Message, s *dggchat.Session) {
 		for _, item := range sr.Search[:max] {
 			matches = append(matches, fmt.Sprintf("%s (%s)", item.Title, item.Year))
 		}
-		b.sendMessageDedupe(strings.Join(matches, ", "), s)
+		b.sendMessageDedupe(m, strings.Join(matches, ", "), s)
 		return
 	}
 
@@ -310,10 +328,10 @@ func (b *bot) imdb(m dggchat.Message, s *dggchat.Session) {
 
 	info, err := getIMDbInfo(title, year, mediaType)
 	if err != nil {
-		b.sendMessageDedupe(fmt.Sprintf("imdb: %s", err.Error()), s)
+		b.sendMessageDedupe(m, fmt.Sprintf("imdb: %s", err.Error()), s)
 		return
 	}
-	b.sendMessageDedupe(formatIMDbInfo(info), s)
+	b.sendMessageDedupe(m, formatIMDbInfo(info), s)
 }
 
 func formatIMDbInfo(info omdbResp) string {
@@ -332,7 +350,7 @@ func isCommunityStream(path string) bool {
 }
 
 // !stream or !strim(s) -- show top streams in chat
-func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) printTopStreams(m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!stream") && !strings.HasPrefix(m.Message, "!strim") {
 		return
 	}
@@ -340,7 +358,7 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 	sd, err := b.getStreamList()
 	if err != nil {
 		log.Printf("%v\n", err)
-		b.sendMessageDedupe("error getting api data", s)
+		b.sendMessageDedupe(m, "error getting api data", s)
 		return
 	}
 
@@ -356,7 +374,7 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 	// handle case that less than 3 streams are being watched...
 	maxlen := len(filteredStreams.StreamList)
 	if maxlen == 0 {
-		b.sendMessageDedupe("no streams are being watched", s)
+		b.sendMessageDedupe(m, "no streams are being watched", s)
 		return
 	}
 	if maxlen > 3 {
@@ -375,7 +393,7 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 				nsfw = " [nsfw]"
 			}
 			out := fmt.Sprintf("%d %s%s%s", data.Rustlers, websiteURL, data.URL, nsfw)
-			b.sendMessageDedupe(out, s)
+			b.sendMessageDedupe(m, out, s)
 			alreadyPrinted++
 		}
 	}
@@ -390,7 +408,7 @@ func (b *bot) printTopStreams(m dggchat.Message, s *dggchat.Session) {
 			}
 			data := filteredStreams.StreamList[i]
 			out := fmt.Sprintf("%d %s%s%s", data.Rustlers, websiteURL, data.URL, nsfw)
-			b.sendMessageDedupe(out, s)
+			b.sendMessageDedupe(m, out, s)
 			alreadyPrinted++
 		}
 	}
@@ -425,7 +443,7 @@ func parseModifiers(s []string) (streamModifier, error) {
 	return sm, nil
 }
 
-func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) modifyStream(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!modify") {
 		return
 	}
@@ -439,7 +457,7 @@ func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
 
 	sm, err := parseModifiers(parts[2:])
 	if err != nil {
-		b.sendMessageDedupe(fmt.Sprintf("%s %s", err.Error(), ominousEmote), s)
+		b.sendMessageDedupe(m, fmt.Sprintf("%s %s", err.Error(), ominousEmote), s)
 		return
 	}
 
@@ -451,16 +469,16 @@ func (b *bot) modifyStream(m dggchat.Message, s *dggchat.Session) {
 			identifier, sm, m.Sender.Nick, err.Error())
 
 		// TODO chat message less verbose
-		b.sendMessageDedupe(fmt.Sprintf("modify: %s %s", err, ominousEmote), s)
+		b.sendMessageDedupe(m, fmt.Sprintf("modify: %s %s", err, ominousEmote), s)
 		return
 	}
 	log.Printf("[##] modify: '%s' with modifier '%+v' by '%s' success!\n",
 		identifier, sm, m.Sender.Nick)
-	b.sendMessageDedupe(fmt.Sprintf("modify success %s", ominousEmote), s)
+	b.sendMessageDedupe(m, fmt.Sprintf("modify success %s", ominousEmote), s)
 }
 
 // !check ATusername
-func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) checkAT(m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!check") {
 		return
 	}
@@ -482,7 +500,7 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 			return
 		}
 
-		b.sendMessageDedupe("error getting api data", s)
+		b.sendMessageDedupe(m, "error getting api data", s)
 		return
 	}
 
@@ -491,7 +509,7 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 	if err != nil {
 		log.Printf("[##] checkAT error2: '%s'\n",
 			err.Error())
-		b.sendMessageDedupe("error getting api data", s)
+		b.sendMessageDedupe(m, "error getting api data", s)
 		return
 	}
 
@@ -522,11 +540,11 @@ func (b *bot) checkAT(m dggchat.Message, s *dggchat.Session) {
 		output += " nsfw"
 	}
 
-	b.sendMessageDedupe(output, s)
+	b.sendMessageDedupe(m, output, s)
 }
 
 // !(un)drop atUser
-func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) dropAT(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || (!strings.HasPrefix(m.Message, "!drop") && !strings.HasPrefix(m.Message, "!undrop")) {
 		return
 	}
@@ -555,7 +573,7 @@ func (b *bot) dropAT(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	//	b.sendMessageDedupe(reply, s)
+	//	b.sendMessageDedupe(m, reply, s)
 	s.SendPrivateMessage(m.Sender.Nick, reply)
 }
 
@@ -593,7 +611,7 @@ func humanizeDuration(duration time.Duration) string {
 }
 
 // !(un)ban -- ban a user
-func (b *bot) ban(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) ban(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || (!strings.HasPrefix(m.Message, "!ban") && !strings.HasPrefix(m.Message, "!unban")) {
 		return
 	}
@@ -668,7 +686,7 @@ func computeRoll(input string) (int, error) {
 }
 
 // !roll sides [count] - roll dice
-func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
+func (b *bot) roll(m message, s *dggchat.Session) {
 	if !strings.HasPrefix(m.Message, "!roll") {
 		return
 	}
@@ -684,5 +702,5 @@ func (b *bot) roll(m dggchat.Message, s *dggchat.Session) {
 		return
 	}
 
-	b.sendMessageDedupe(fmt.Sprintf("%s rolled %d", m.Sender.Nick, sum), s)
+	b.sendMessageDedupe(m, fmt.Sprintf("%s rolled %d", m.Sender.Nick, sum), s)
 }
