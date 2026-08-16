@@ -1,13 +1,45 @@
 # modbot
 
+Chat moderation bot for [strims.gg](https://strims.gg).
+
+### running
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `-cookie` | | jwt used for chat auth and API access (required) |
+| `-chat` | `wss://chat.strims.gg/ws` | chat websocket url |
+| `-api` | `https://strims.gg/api` | backend api base url |
+| `-log` | `/tmp/chatlog/chatlog.log` | chat log file, rotated on `SIGHUP` (see `modbot-rotate`) |
+| `-commands` | `commands.json` | static `!command` store, written by `!addcommand` |
+| `-attoken` | | angelthump admin token, needed for `!(un)drop` |
+| `-omdbkey` | | OMDb api key, needed for `!imdb` |
+| `-logonly` | `false` | reply to the log instead of chat, for debugging |
+| `-version` | | print the built commit and exit |
+
+See [monitoring](#monitoring) for `-metrics`, `-pinginterval` and `-healthcheck`.
+
+`SIGINT`/`SIGTERM` shut down cleanly; `SIGHUP` reopens the log file.
+
+### development
+
+Requires Go (version pinned in `go.mod`) and [`just`](https://github.com/casey/just).
+
+```
+just          # list recipes
+just check    # fmt, vet, test -race, lint, tidy -- what CI runs
+just build
+just image    # build the container image
+```
+
 ### mod commands
 
 | Command | Arguments | Example | Extra |
 | --- | --- | --- | ---- |
 | !modify | {service/username, username} [nsfw\|hidden\|afk\|promoted]... | !modify youtube/6n3pFFPSlW4 hidden !nsfw | To invert options (remove modifier), prefix with "!".
 | !rename | oldUsername newUsername | !rename ihatememes ilovememes | User has to reconnect after. Alternatively ban for 1 second.
-| !addcommand | [!]commandname [output\|\_] | !addcommand test i like tests | Using "\_" as output removes the given command.
-| !say | string | !say something nice |
+| !addcommand | [!]commandname output | !addcommand test i like tests | Overwrites an existing command of the same name.
+| !delcommand | [!]commandname | !delcommand test | Removes the given command.
+| !say | string | !say something nice | Always replies in public chat, even when issued over PM.
 | !mute | username | | Limited functionality, default 10m duration.
 | !nuke | string | !nuke badword123 | default 10m duration.
 | !nukeregex | regexp | !nukeregex (MiyanoHype ){10,} | default 10m duration.
@@ -46,4 +78,4 @@ cardinality, and it would make the metrics store a record of user behaviour.
 The image is `FROM scratch`, so `HEALTHCHECK` runs the binary's own
 `-healthcheck` mode. Change it alongside `-metrics` if you move the port.
 
-All mod-commands can also be issued via PMs to Bot. E.g. `/w Bot !modify youtube/6n3pFFPSlW4 hidden !nsfw`. Responses will be via normal chat though!
+All mod-commands can also be issued via PMs to Bot. E.g. `/w Bot !modify youtube/6n3pFFPSlW4 hidden !nsfw`. Replies come back on the channel the command arrived on, so a command sent over PM is answered over PM. `!say` is the exception and always speaks in public chat.

@@ -1,0 +1,14 @@
+# .git is deliberately NOT ignored: the Go toolchain stamps the commit into the
+# binary from it (see buildVersion).
+.github/
+.golangci.yaml
+.dockerignore
+Dockerfile
+README.md
+justfile
+modbot
+modbot.exe
+modbot-rotate
+commands.json
+coverage.out
+dist/
