@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -29,6 +30,9 @@ var (
 	omdbAPIKey   string
 	logOnly      bool
 	logFile      *os.File
+	metricsAddr  string
+	pingInterval time.Duration
+	healthCheck  bool
 )
 
 const (
@@ -47,9 +51,22 @@ func main() {
 	flag.StringVar(&atAdminToken, "attoken", "", "angelthump admin token (optional)")
 	flag.StringVar(&omdbAPIKey, "omdbkey", "", "OMDb API key for !imdb command (optional)")
 	flag.BoolVar(&logOnly, "logonly", false, "only 'reply' to logfile, not chat (for debugging)")
+	flag.StringVar(&metricsAddr, "metrics", ":9090", "listen address for /metrics and /healthz")
+	flag.DurationVar(&pingInterval, "pinginterval", 30*time.Second, "how often to send a keepalive PING")
+	flag.BoolVar(&healthCheck, "healthcheck", false, "probe a running instance's /healthz and exit; used by the container HEALTHCHECK")
 	flag.Parse()
 
+	if healthCheck {
+		if err := checkHealth(metricsAddr); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	loadStaticCommands()
+
+	serveMetrics(metricsAddr)
 
 	// TODO dggchat lib isn't flexible with the cookie name, workaround...
 	dgg, err := dggchat.New(";jwt=" + authCookie)
@@ -98,8 +115,11 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	setConnected(true)
 	debuglogger.Println("[##] connected...")
 	defer dgg.Close()
+
+	go pinger(dgg, pingInterval)
 
 	info, err := b.getProfileInfo()
 	if err != nil {
@@ -205,11 +225,13 @@ func loadStaticCommands() {
 func saveStaticCommands() bool {
 	s, err := json.MarshalIndent(commands, "", "\t")
 	if err != nil {
+		commandPersistFailures.Inc()
 		log.Printf("failed marshaling commands, error: %v\n", err)
 		return false
 	}
 	err = ioutil.WriteFile(commandJSON, s, 0o755)
 	if err != nil {
+		commandPersistFailures.Inc()
 		absPath, absErr := filepath.Abs(commandJSON)
 		if absErr != nil {
 			absPath = commandJSON
