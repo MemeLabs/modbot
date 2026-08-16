@@ -1,2 +1,5 @@
 modbot
 modbot.exe
+commands.json
+coverage.out
+dist/

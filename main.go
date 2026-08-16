@@ -1,17 +1,16 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
 	"os/signal"
-	"path"
 	"path/filepath"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -29,21 +28,32 @@ var (
 	atAdminToken string
 	omdbAPIKey   string
 	logOnly      bool
-	logFile      *os.File
+	showVersion  bool
 	metricsAddr  string
 	pingInterval time.Duration
 	healthCheck  bool
+
+	logFile        *os.File
+	staticCommands *staticCommandStore
 )
 
 const (
 	websiteURL   = "strims.gg"
-	pollTime     = time.Second * 2
 	ominousEmote = "BOGGED"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+// run holds the real body of main so that deferred cleanup still executes on
+// the error paths; log.Fatal in main would skip it.
+func run() error {
 	flag.StringVar(&authCookie, "cookie", "", "Cookie used for chat authentication and API access")
-	flag.StringVar(&chatPath, "path", "", "path to chat-gui")
+	// unused, kept so existing deploy invocations passing -path still start
+	flag.StringVar(&chatPath, "path", "", "path to chat-gui (unused)")
 	flag.StringVar(&chatURL, "chat", "wss://chat.strims.gg/ws", "ws(s)-url for chat")
 	flag.StringVar(&backendURL, "api", "https://strims.gg/api", "basic backend api path")
 	flag.StringVar(&logFileName, "log", "/tmp/chatlog/chatlog.log", "file to write messages to")
@@ -54,28 +64,42 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics", ":9090", "listen address for /metrics and /healthz")
 	flag.DurationVar(&pingInterval, "pinginterval", 30*time.Second, "how often to send a keepalive PING")
 	flag.BoolVar(&healthCheck, "healthcheck", false, "probe a running instance's /healthz and exit; used by the container HEALTHCHECK")
+	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Println(buildVersion())
+		return nil
+	}
 
 	if healthCheck {
 		if err := checkHealth(metricsAddr); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
 		}
-		return
+		return nil
 	}
 
-	loadStaticCommands()
+	staticCommands = newStaticCommandStore(commandJSON)
+	if err := staticCommands.load(); err != nil {
+		return err
+	}
 
 	serveMetrics(metricsAddr)
+
+	// cancelled on SIGINT/SIGTERM; parsers inherit it so in-flight API calls
+	// are dropped instead of holding up shutdown.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	// TODO dggchat lib isn't flexible with the cookie name, workaround...
 	dgg, err := dggchat.New(";jwt=" + authCookie)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	// init bot
-	b := newBot(authCookie, 250)
+	b := newBot(ctx, authCookie, 250)
 	b.addParser(
 		b.staticMessage,
 		b.nuke,
@@ -107,21 +131,20 @@ func main() {
 
 	u, err := url.Parse(chatURL)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("parsing chat url %q: %w", chatURL, err)
 	}
 	dgg.SetURL(*u)
 
-	err = dgg.Open()
-	if err != nil {
-		log.Fatalln(err)
+	if err := dgg.Open(); err != nil {
+		return fmt.Errorf("connecting to chat: %w", err)
 	}
 	setConnected(true)
-	debuglogger.Println("[##] connected...")
+	debuglogger.Printf("[##] connected... (version %s)\n", buildVersion())
 	defer dgg.Close()
 
 	go pinger(dgg, pingInterval)
 
-	info, err := b.getProfileInfo()
+	info, err := b.getProfileInfo(ctx)
 	if err != nil {
 		debuglogger.Printf("userinfo: %s\n", err.Error())
 	} else {
@@ -129,115 +152,81 @@ func main() {
 	}
 
 	// log to file and stdout
-	logFile = reOpenLog()
+	logFile, err = reOpenLog()
+	if err != nil {
+		return err
+	}
 	log.Println("[##] Restart")
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	// logrotate signals us out-of-band; SIGINT/SIGTERM land on ctx instead.
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	defer signal.Stop(hup)
 
 	if logOnly {
 		debuglogger.Println("[##] started in logonly mode.")
 	}
 	debuglogger.Println("[##] waiting for signals...")
-	for {
-		sig := <-signals
-		switch sig {
 
+	for {
+		select {
 		// handle logrotate request from daemon
-		case syscall.SIGHUP:
+		case <-hup:
 			log.Println("[##] signal: handling SIGHUP")
-			err = logFile.Close()
-			if err != nil {
-				panic(err)
+			if err := logFile.Close(); err != nil {
+				log.Printf("[##] error closing logfile: %s\n", err)
 			}
-			logFile = reOpenLog()
+			if logFile, err = reOpenLog(); err != nil {
+				return err
+			}
 
 		// exit on interrupt
-		case syscall.SIGTERM:
-			fallthrough
-		case syscall.SIGINT:
+		case <-ctx.Done():
 			log.Println("[##] signal: handling SIGINT/SIGTERM")
-			err = logFile.Close()
-			if err != nil {
-				log.Printf("[##] error in cleanup: %s\n", err.Error())
+			if err := logFile.Close(); err != nil {
+				log.Printf("[##] error in cleanup: %s\n", err)
 			}
-			os.Exit(1)
+			return nil
 		}
 	}
 }
 
-func reOpenLog() *os.File {
-	dir, _ := path.Split(logFileName)
-	if !fileExists(dir) {
+func reOpenLog() (*os.File, error) {
+	if dir := filepath.Dir(logFileName); dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			panic(err)
+			return nil, fmt.Errorf("creating log directory %s: %w", dir, err)
 		}
 	}
 
-	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o755)
+	f, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o644)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("opening log file %s: %w", logFileName, err)
 	}
-	mw := io.MultiWriter(os.Stdout, f)
-	log.SetOutput(mw)
-	return f
+	log.SetOutput(io.MultiWriter(os.Stdout, f))
+	return f, nil
 }
 
-func fileExists(name string) bool {
-	if _, err := os.Stat(name); err != nil {
-		if os.IsNotExist(err) {
-			return false
+// buildVersion reports the VCS revision stamped into the binary by the Go
+// toolchain, so a running bot can be traced back to a commit.
+func buildVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+
+	var revision, dirty string
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.modified":
+			if s.Value == "true" {
+				dirty = "-dirty"
+			}
 		}
 	}
-	return true
-}
-
-func loadStaticCommands() {
-	// resolved to an absolute path so deploy logs show exactly which file/volume
-	// is in play -- the flag default is a bare relative name and silently
-	// follows whatever the process's CWD happens to be on a given deploy.
-	absPath, err := filepath.Abs(commandJSON)
-	if err != nil {
-		absPath = commandJSON
+	if revision == "" {
+		return info.GoVersion
 	}
-
-	if !fileExists(commandJSON) {
-		log.Printf("commands file %s not found, creating empty one\n", absPath)
-		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0o755)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	b, err := ioutil.ReadFile(commandJSON)
-	if err != nil {
-		panic(err)
-	}
-	var cmnd map[string]string
-	err = json.Unmarshal(b, &cmnd)
-	if err != nil {
-		panic(err)
-	}
-	commands = cmnd
-	log.Printf("loaded %d static command(s) from %s\n", len(commands), absPath)
-}
-
-func saveStaticCommands() bool {
-	s, err := json.MarshalIndent(commands, "", "\t")
-	if err != nil {
-		commandPersistFailures.Inc()
-		log.Printf("failed marshaling commands, error: %v\n", err)
-		return false
-	}
-	err = ioutil.WriteFile(commandJSON, s, 0o755)
-	if err != nil {
-		commandPersistFailures.Inc()
-		absPath, absErr := filepath.Abs(commandJSON)
-		if absErr != nil {
-			absPath = commandJSON
-		}
-		log.Printf("failed saving commands to %s, error: %v\n", absPath, err)
-		return false
-	}
-	return true
+	return fmt.Sprintf("%s%s %s", revision[:min(len(revision), 12)], dirty, info.GoVersion)
 }

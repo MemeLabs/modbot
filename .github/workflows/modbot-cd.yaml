@@ -2,30 +2,62 @@ name: modbot-cd
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# never let two deploys race each other, and never cancel one mid-flight
+concurrency:
+  group: modbot-cd
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/memelabs/modbot/modbot
 
 jobs:
-  build:
-    name: Build
+  deploy:
+    name: Build and deploy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v7
-      with:
-        submodules: true
-    - name: Docker login
-      env:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-      run: docker login https://ghcr.io -u ${username} -p ${password}
-    - name: Build image
-      run: docker build . -t ghcr.io/memelabs/modbot/modbot:latest
-    - name: Publish image
-      run: docker push ghcr.io/memelabs/modbot/modbot:latest
-    - name: ssh-deploy for modbot
-      uses: appleboy/ssh-action@122f35dca5c7a216463c504741deb0de5b301953
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        script: |
-          ./hooks/modbot.sh
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          # "latest" is what the deploy hook pulls; the sha tag makes it
+          # possible to identify and roll back to a specific build
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: ssh-deploy for modbot
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          script: |
+            ./hooks/modbot.sh

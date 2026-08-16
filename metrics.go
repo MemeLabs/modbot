@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -104,8 +105,15 @@ func checkHealth(addr string) error {
 		return fmt.Errorf("bad metrics address %q: %w", addr, err)
 	}
 
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%s/healthz", port))
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:"+port+"/healthz", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
