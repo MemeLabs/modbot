@@ -228,43 +228,65 @@ func (b *bot) unmute(m message, s *dggchat.Session) {
 	s.SendUnmute(parts[1])
 }
 
+// normalizeCommandName splits "!addcommand foo bar baz" style messages into
+// the command prefix, the command name (always "!"-prefixed), and everything
+// after it. ok is false if fewer than minParts whitespace-separated fields
+// are present (extra whitespace collapses instead of shifting field indices).
+func normalizeCommandName(msg string, minParts int) (cmnd string, rest []string, ok bool) {
+	parts := strings.Fields(msg)
+	if len(parts) < minParts {
+		return "", nil, false
+	}
+	cmnd = parts[1]
+	if !strings.HasPrefix(cmnd, "!") {
+		cmnd = "!" + cmnd
+	}
+	return cmnd, parts[2:], true
+}
+
 // !addcommand command response
 func (b *bot) addCommand(m message, s *dggchat.Session) {
 	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!addcommand") {
 		return
 	}
 
-	// message itself can contain spaces
-	parts := strings.Split(m.Message, " ")
-	if len(parts) < 3 {
+	cmnd, respParts, ok := normalizeCommandName(m.Message, 3)
+	if !ok {
+		return
+	}
+	resp := strings.Join(respParts, " ")
+
+	mutex.Lock()
+	defer mutex.Unlock()
+	commands[cmnd] = resp
+	success := saveStaticCommands()
+	if success {
+		b.sendMessageDedupe(m, fmt.Sprintf("added new command %s", cmnd), s)
+		return
+	}
+	b.sendMessageDedupe(m, "failed saving command, check logs", s)
+}
+
+// !delcommand command
+func (b *bot) delCommand(m message, s *dggchat.Session) {
+	if !isMod(m.Sender) || !strings.HasPrefix(m.Message, "!delcommand") {
 		return
 	}
 
-	cmnd := parts[1]
-	if !strings.HasPrefix(cmnd, "!") {
-		cmnd = "!" + cmnd
+	cmnd, _, ok := normalizeCommandName(m.Message, 2)
+	if !ok {
+		return
 	}
-	resp := strings.Join(parts[2:], " ")
+
 	mutex.Lock()
 	defer mutex.Unlock()
-	// TODO workaround to enable deletion
-	if resp == "_" {
-		delete(commands, cmnd)
-		success := saveStaticCommands()
-		if success {
-			b.sendMessageDedupe(m, "deleted command if it existed", s)
-			return
-		}
-		b.sendMessageDedupe(m, "failed saving command, check logs", s)
-	} else {
-		commands[cmnd] = resp
-		success := saveStaticCommands()
-		if success {
-			b.sendMessageDedupe(m, fmt.Sprintf("added new command %s", cmnd), s)
-			return
-		}
-		b.sendMessageDedupe(m, "failed saving command, check logs", s)
+	delete(commands, cmnd)
+	success := saveStaticCommands()
+	if success {
+		b.sendMessageDedupe(m, fmt.Sprintf("deleted command %s if it existed", cmnd), s)
+		return
 	}
+	b.sendMessageDedupe(m, "failed saving command, check logs", s)
 }
 
 var trailingYearRegexp = regexp.MustCompile(`^(.*\S)\s+(\d{4})$`)
