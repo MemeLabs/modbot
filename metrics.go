@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -110,7 +112,10 @@ func checkHealth(addr string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("healthz returned %s", resp.Status)
+		// docker records the check's output in .State.Health.Log, so pass the
+		// reason along rather than just the status code
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		return fmt.Errorf("healthz %s: %s", resp.Status, strings.TrimSpace(string(body)))
 	}
 	return nil
 }
