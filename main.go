@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -66,6 +67,7 @@ func main() {
 		b.rename,
 		b.say,
 		b.addCommand,
+		b.delCommand,
 		b.mute,
 		b.unmute,
 		b.printTopStreams,
@@ -171,9 +173,16 @@ func fileExists(name string) bool {
 }
 
 func loadStaticCommands() {
+	// resolved to an absolute path so deploy logs show exactly which file/volume
+	// is in play -- the flag default is a bare relative name and silently
+	// follows whatever the process's CWD happens to be on a given deploy.
+	absPath, err := filepath.Abs(commandJSON)
+	if err != nil {
+		absPath = commandJSON
+	}
+
 	if !fileExists(commandJSON) {
-		log.Printf("creating empty commands file %s\n", commandJSON)
-		os.Create(commandJSON)
+		log.Printf("commands file %s not found, creating empty one\n", absPath)
 		err := ioutil.WriteFile(commandJSON, []byte("{}"), 0o755)
 		if err != nil {
 			panic(err)
@@ -190,6 +199,7 @@ func loadStaticCommands() {
 		panic(err)
 	}
 	commands = cmnd
+	log.Printf("loaded %d static command(s) from %s\n", len(commands), absPath)
 }
 
 func saveStaticCommands() bool {
@@ -200,7 +210,11 @@ func saveStaticCommands() bool {
 	}
 	err = ioutil.WriteFile(commandJSON, s, 0o755)
 	if err != nil {
-		log.Printf("failed saving commands, error: %v\n", err)
+		absPath, absErr := filepath.Abs(commandJSON)
+		if absErr != nil {
+			absPath = commandJSON
+		}
+		log.Printf("failed saving commands to %s, error: %v\n", absPath, err)
 		return false
 	}
 	return true
