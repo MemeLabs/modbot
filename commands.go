@@ -33,7 +33,13 @@ func (b *bot) sendMessageDedupe(m string, s *dggchat.Session) {
 
 	b.randomizer++
 	rnd := " " + strings.Repeat(".", b.randomizer%2)
-	err := s.SendMessage(m + rnd)
+
+	var err error
+	if b.pmReplyNick != "" {
+		err = s.SendPrivateMessage(b.pmReplyNick, m+rnd)
+	} else {
+		err = s.SendMessage(m + rnd)
+	}
 	if err != nil {
 		log.Printf("[##] send error: %s\n", err.Error())
 	}

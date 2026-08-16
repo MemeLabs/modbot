@@ -13,6 +13,11 @@ type bot struct {
 	lastNukeVictims []string
 	randomizer      int
 	authCookie      string
+	// pmReplyNick, when non-empty, redirects sendMessageDedupe to a private
+	// message instead of public chat. Set for the duration of parser dispatch
+	// triggered by onPMHandler, since replies to a PM command should stay
+	// private rather than leak into the public channel.
+	pmReplyNick string
 }
 
 func newBot(authCookie string, maxLogLines int) *bot {
@@ -81,6 +86,9 @@ func (b *bot) onPMHandler(m dggchat.PrivateMessage, s *dggchat.Session) {
 			Timestamp: m.Timestamp,
 			Message:   m.Message,
 		}
+
+		b.pmReplyNick = m.User.Nick
+		defer func() { b.pmReplyNick = "" }()
 
 		for _, p := range b.parsers {
 			p(msg, s)
