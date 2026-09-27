@@ -79,6 +79,10 @@ func (b *bot) getJSON(ctx context.Context, path string, out any) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("api returned status code %d", resp.StatusCode)
+	}
+
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
